@@ -134,6 +134,7 @@ class AgentTests(unittest.TestCase):
         url = 'http://127.0.0.1:' + str(server.server_port)
         try:
             page = urllib.request.urlopen(url).read().decode()
+            self.assertIn("🪶 FeatherOS AI", page)
             token = page.split("const token='")[1].split("'")[0]
             with self.assertRaises(urllib.error.HTTPError) as error: urllib.request.urlopen(url + '/api/state')
             self.assertEqual(error.exception.code, 403)
