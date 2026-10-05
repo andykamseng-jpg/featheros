@@ -1,0 +1,60 @@
+# FeatherOS Starter — Feather AI Core 0.6
+
+First working layer: the computer's AI centre. FeatherOS is intended to run across a broad range of PCs, with a cloud-connected AI agent controlling Feather through a local system service and exposing machine tools over MCP. Run a small local agent, connect a cloud model or MCP client, inspect the machine, edit Feather's source and user projects, run commands, keep code revisions on disk, and interact by typing or voice.
+
+MCP is the tool-connection protocol, not the operating system itself. Feather's local agent connects the AI to the OS and hardware; the AI can use the tools the agent exposes. The long-term goal is for this AI control layer to work across Feather computers and supported Windows installations, with a matching compatibility adapter for each Windows generation and machine setup.
+
+## What works in this starter
+
+- Local browser dashboard with typed tasks, optional microphone transcription, speaker replies, revision saving, and a link to a cloud Windows desktop.
+- Optional cloud worker for a configured HTTPS chat-completions-compatible model with function calling.
+- MCP stdio tools for computer information, file edits, current-user commands, revisions and dashboard tasks.
+- Automatic read-only hardware scan as soon as the local Feather agent starts on supported Windows and Linux hosts; the AI can read the results through MCP.
+- Persistent user work, tasks, activity and revisions on the hard drive.
+- A download/verification staging script for an existing separate Windows volume, plus a Debian live preview build recipe.
+
+## Start Feather AI Core
+
+The development source can run on Python 3.9 or newer on Linux or supported modern Windows; it needs no pip dependencies. Windows users should use the self-contained Windows bundle built by `.github/workflows/build-windows.yml`, which does not require Python to be installed.
+
+Windows release: extract the workflow's `FeatherOS-Setup-unsigned-development.zip` or signed ZIP and double-click `FeatherOS-Setup.exe`. The ZIP in this project is source code and does not contain a compiled Windows installer. The unsigned development build may be blocked by Windows Smart App Control; do not turn off Windows protection to run it. Read `build/windows/README.md` for the build process, release signing, and current support limits.
+
+Linux: run `sh START-AGENT.sh`.
+
+Open http://127.0.0.1:8765 in a current browser. The dashboard is local. It will show "Waiting for an AI connection" until you configure a model or connect an MCP client.
+
+In the Windows app, choose **Connect cloud AI** to enter an HTTPS endpoint, model, and provider key. The key stays in process memory only and is cleared when Feather exits. The model is called only after you submit a task. Linux users can still use `python3 -m agent.connect`.
+
+To let the AI execute commands as your user account, start with `python3 -m agent.server --enable-commands`.
+
+Commands run with that account's authority; file-tool roots do not restrict commands. Start the agent once: an MCP client launching it also serves the dashboard, so stop a standalone instance before launching that client, or select another --port and data directory.
+
+Once Feather is running on a computer, its AI can call `system_info` to collect OS, processor, memory, firmware, disk, graphics, network and installed-driver details locally. This inventory does not change the computer. The current Windows probe requires a supported Python runtime and PowerShell; Feather Prep still needs a trusted, tested launcher before it can start on every Windows generation.
+
+See design/MCP-CONNECTION.md for MCP configuration and the optional cloud worker. No account, hosted model, provider credential, subscription or perpetual cloud session is included. Connection checks and real provider calls need your configured service. An old laptop can use cloud inference without a local model/GPU, but its installed Feather runtime still needs drivers for the actual hardware.
+
+## Automatic hardware scan
+
+Feather's intended sequence is: install the Feather Prep app into the existing Windows installation -> start Feather for the first time -> Feather scans the local computer automatically -> the connected AI reads the report -> Feather identifies a compatible setup path. This scan does not repartition the disk, change boot settings, or erase Windows.
+
+The current agent implements automatic read-only inventory for Windows and Linux. Its Windows probe uses PowerShell/WMI and includes OS, processor, memory, firmware, disk, graphics, network and a bounded list of drivers. It has only been tested with simulated PowerShell output, not on your laptop; older Windows versions need compatible native launchers and their own boot adapters.
+
+The goal is to let people start Feather Prep from any Windows generation they still use, from legacy releases through current Windows. The current ZIP does not yet provide this: the Python/browser core requires a supported modern runtime, and there is no tested universal launcher. Feather Prep needs separate, tested adapters for Windows version/build, CPU architecture, firmware boot mode, disk layout, and available network/TLS support.
+
+## Installation roadmap
+
+The intended final product installs Feather Prep inside the existing Windows first, then automatically scans before making any disk or boot changes. After the AI identifies a tested compatible route and the user chooses to continue, Feather stages Setup on the internal drive, reboots into Setup, checks hardware/network support, and only then offers the Windows replacement step. The product goal covers supported Windows generations and uses no USB.
+
+This ZIP is not a finished OS installer and does not erase Windows. The all-Windows compatibility matrix, per-generation launchers and boot adapters, disk repartitioning, the actual replacement/wiper, signed bootable release and automatic OS upgrades are not implemented. windows/PREPARE-STAGING.ps1 only downloads hash-verified files from a real supplied release manifest onto an already existing separate volume; it cannot install the example manifest. build/BUILD-LIVE-PREVIEW.sh is an unexecuted recipe for a Linux live preview, not the no-USB installer.
+
+Feather's AI can edit source, save revisions and verify changes when tools permit. Source edits need build/restart/deployment before they become running system changes. Code revisions are not disk snapshots. A local agent and cloud model supply the AI; this ChatGPT conversation is not embedded into firmware or moved onto the laptop.
+
+## Voice
+
+Microphone support depends on a current browser implementing SpeechRecognition and may use the browser's online transcription service. The UI displays typing when unsupported. Speaker output uses the browser's speech synthesis. Real audio devices and old-browser compatibility remain untested.
+
+## Development verification
+
+Run `python3 -m unittest discover -s tests -v`.
+
+Tests cover the agent, MCP messages, local HTTP access, revisions, task persistence, a simulated cloud tool loop and installation-sequence invariants. Windows scripts, a real provider, physical audio, the live build and an OS replacement require separate testing.

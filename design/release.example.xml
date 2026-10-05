@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Template only. No released Feather kernel/image currently exists here.
+     Publisher must replace URLs/sizes/hashes with real verified release artifacts.
+     The consumer also needs the trusted SHA-256 of this complete manifest. -->
+<feather-release version="development-template" architecture="amd64">
+  <file name="feather-kernel" url="https://example.invalid/feather-kernel" size="1" sha256="0000000000000000000000000000000000000000000000000000000000000000"/>
+</feather-release>
