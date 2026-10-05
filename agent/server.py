@@ -57,7 +57,7 @@ def stdio(agent):
 
 def make_http(agent, port=8765):
     token = secrets.token_urlsafe(32)
-    html = (Path(__file__).parent / "desktop.html").read_text().replace("__TOKEN__", token)
+    html = (Path(__file__).parent / "desktop.html").read_text(encoding="utf-8").replace("__TOKEN__", token)
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *args):
