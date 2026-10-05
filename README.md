@@ -17,7 +17,7 @@ MCP is the tool-connection protocol, not the operating system itself. Feather's 
 
 The development source can run on Python 3.9 or newer on Linux or supported modern Windows; it needs no pip dependencies. Windows users should use the self-contained Windows bundle built by `.github/workflows/build-windows.yml`, which does not require Python to be installed.
 
-Windows release: extract the workflow's `FeatherOS-Setup-unsigned-development.zip` or signed ZIP and double-click `FeatherOS-Setup.exe`. The ZIP in this project is source code and does not contain a compiled Windows installer. The unsigned development build may be blocked by Windows Smart App Control; do not turn off Windows protection to run it. Read `build/windows/README.md` for the build process, release signing, and current support limits.
+Windows release: download `FeatherOS-Setup.exe` from the [FeatherOS v0.6.0 release](https://github.com/andykamseng-jpg/featheros/releases/tag/v0.6.0), then run it on your Windows PC. It installs Feather Prep for the current user and performs a read-only hardware scan; it does not wipe Windows or install a replacement OS. This early test build is unsigned and may be blocked or warned about by Windows security controls; do not disable protections to run it. The ZIP in this project contains source code, not the compiled installer. Read `build/windows/README.md` for build steps, signing, and support limits.
 
 Linux: run `sh START-AGENT.sh`.
 
