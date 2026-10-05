@@ -124,8 +124,13 @@ jobs:
           "@
           $notesPath = Join-Path $env:RUNNER_TEMP "feather-release-notes.txt"
           $notes | Set-Content -Encoding UTF8 $notesPath
+          $installerPath = Get-ChildItem "release-files" -Filter "FeatherOS-Setup.exe" -File -Recurse |
+            Select-Object -First 1 -ExpandProperty FullName
+          $readmePath = Get-ChildItem "release-files" -Filter "README-Windows.txt" -File -Recurse |
+            Select-Object -First 1 -ExpandProperty FullName
+          if (-not $installerPath -or -not $readmePath) { throw "The built installer or release notes were not found in the downloaded artifact." }
           gh release create $env:RELEASE_TAG `
-            release-files/FeatherOS-Setup.exe release-files/README-Windows.txt `
+            $installerPath $readmePath `
             --title "FeatherOS $env:RELEASE_TAG" `
             --notes-file $notesPath `
             --target $env:GITHUB_SHA
