@@ -1,9 +1,10 @@
-"""Opt-in, minimal device check-in for the Feather PC list."""
+"""Automatic, bounded hardware check-in for Feather Prep."""
 import json
 import os
 from pathlib import Path
 import platform
 import secrets
+import re
 import threading
 import urllib.error
 import urllib.request
@@ -16,6 +17,7 @@ REGISTRY_URL = os.environ.get("FEATHER_REGISTRY_URL") or "https://featheros.verc
 REPORT_URL = REGISTRY_URL.rstrip("/") + "/api/report" if REGISTRY_URL else ""
 UNREGISTER_URL = REGISTRY_URL.rstrip("/") + "/api/unregister" if REGISTRY_URL else ""
 REPORT_INTERVAL_SECONDS = 12 * 60 * 60
+RETRY_INTERVAL_SECONDS = 5 * 60
 
 
 def configured():
@@ -51,6 +53,45 @@ def _first_row(value):
     return value if isinstance(value, dict) else {}
 
 
+def _text(value, limit=100):
+    return str(value or "").strip()[:limit]
+
+
+def _rows(hardware, key, limit):
+    value = hardware.get(key)
+    return [row for row in value[:limit] if isinstance(row, dict)] if isinstance(value, list) else []
+
+
+def _hardware_id(value):
+    """Keep generic vendor/product IDs, never a device's unique instance suffix."""
+    match = re.match(r"^(PCI\\VEN_[0-9A-F]{4}&DEV_[0-9A-F]{4}|USB\\VID_[0-9A-F]{4}&PID_[0-9A-F]{4})", str(value or ""), re.I)
+    return match.group(1).upper() if match else ""
+
+
+def hardware_summary(hardware):
+    bios, board = _first_row(hardware.get("bios")), _first_row(hardware.get("boards"))
+    devices = []
+    for category in ("graphics", "network_hardware"):
+        for row in _rows(hardware, category, 24):
+            devices.append({"type": category, "name": _text(row.get("Name"), 100),
+                            "hardwareId": _hardware_id(row.get("PNPDeviceID")),
+                            "driverVersion": _text(row.get("DriverVersion"), 40)})
+    return {
+        "firmwareMode": _text(hardware.get("firmware_mode"), 12),
+        "secureBoot": hardware.get("secure_boot") if isinstance(hardware.get("secure_boot"), bool) else None,
+        "bios": {"manufacturer": _text(bios.get("Manufacturer"), 80),
+                 "version": _text(bios.get("SMBIOSBIOSVersion"), 50)},
+        "board": {"manufacturer": _text(board.get("Manufacturer"), 80),
+                  "model": _text(board.get("Product"), 100)},
+        "devices": devices[:48],
+        "drivers": [{"name": _text(row.get("DeviceName"), 100),
+                     "version": _text(row.get("DriverVersion"), 40),
+                     "provider": _text(row.get("DriverProviderName"), 80),
+                     "signed": row.get("IsSigned") if isinstance(row.get("IsSigned"), bool) else None}
+                    for row in _rows(hardware, "installed_drivers", 200)],
+    }
+
+
 def make_report(identity, hardware):
     computer = _first_row(hardware.get("computer"))
     operating_system = _first_row(hardware.get("operating_system"))
@@ -66,6 +107,8 @@ def make_report(identity, hardware):
         "os": str(os_name)[:40],
         "osVersion": str(os_version)[:50],
         "appVersion": __version__,
+        "hardware": hardware_summary(hardware),
+        "preflight": "scan_unavailable" if hardware.get("status") == "unavailable" else "replacement_image_not_available",
     }
 
 
@@ -80,7 +123,7 @@ def _post(url, payload):
     try:
         with urllib.request.urlopen(request, timeout=10) as response:
             if response.status in (200, 201):
-                return "This PC is on your Feather device list."
+                return "Hardware report received by Feather registry. Windows replacement is not ready."
             return f"Device list returned status {response.status}."
     except urllib.error.HTTPError as exc:
         return f"Device list returned status {exc.code}."
@@ -103,7 +146,7 @@ def unregister(data_dir):
 
 
 def report_loop(agent, data_dir, stop_event, on_status=None):
-    """Send an initial opted-in report and refresh the check-in twice daily."""
+    """Send the initial report after scanning and refresh it twice daily."""
     while not stop_event.is_set():
         if agent.hardware_ready.wait(timeout=30):
             with agent.hardware_lock:
@@ -113,5 +156,6 @@ def report_loop(agent, data_dir, stop_event, on_status=None):
         status = report_once(data_dir, hardware)
         if on_status:
             on_status(status)
-        if stop_event.wait(REPORT_INTERVAL_SECONDS):
+        delay = REPORT_INTERVAL_SECONDS if status.startswith("Hardware report received") else RETRY_INTERVAL_SECONDS
+        if stop_event.wait(delay):
             return

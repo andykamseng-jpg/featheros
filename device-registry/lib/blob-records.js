@@ -28,6 +28,8 @@ export async function saveReport(report, knownExisting) {
     os: report.os,
     osVersion: report.osVersion,
     appVersion: report.appVersion,
+    hardware: report.hardware,
+    preflight: report.preflight,
     registeredAt: existing?.registeredAt || now,
     lastSeen: now,
   };

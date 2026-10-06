@@ -8,7 +8,6 @@ import sys
 import threading
 import tkinter as tk
 from tkinter import messagebox, ttk
-from urllib.parse import urlparse
 import webbrowser
 
 from agent import cloud
@@ -83,27 +82,27 @@ class FeatherPrep:
 
         self.root = tk.Tk()
         self.root.title("Feather Prep")
-        self.root.geometry("460x285")
+        self.root.geometry("500x260")
         self.root.resizable(False, False)
         frame = ttk.Frame(self.root, padding=20)
         frame.pack(fill="both", expand=True)
         ttk.Label(frame, text="Feather Prep", font=("Segoe UI", 16, "bold")).pack(anchor="w")
-        ttk.Label(frame, text="Your existing Windows installation is untouched.",
+        ttk.Label(frame, text="Feather is checking this PC before an installation decision. Windows is untouched.",
                   wraplength=410).pack(anchor="w", pady=(8, 2))
         self.status = ttk.Label(frame, text="Scanning hardware (read-only)…", wraplength=410)
         self.status.pack(anchor="w", pady=(5, 12))
-        self.share_device = tk.BooleanVar(value=settings.get("share_device") is True)
-        ttk.Checkbutton(frame, text="Include this PC in my Feather device list",
+        self.share_device = tk.BooleanVar(value=settings.get("share_device") is not False)
+        ttk.Checkbutton(frame, text="Send hardware report to my Feather registry",
                         variable=self.share_device, command=self.toggle_device_sharing).pack(anchor="w")
-        self.registry_status = ttk.Label(frame, text="Device list sharing is off.", wraplength=410)
+        self.registry_status = ttk.Label(frame, text="Waiting for hardware scan…", wraplength=450)
         self.registry_status.pack(anchor="w", pady=(4, 10))
+        ttk.Label(frame, text="Sends PC name, model, firmware version, device IDs and installed driver names/versions; no files or serial numbers.",
+                  wraplength=450).pack(anchor="w")
         buttons = ttk.Frame(frame)
         buttons.pack(fill="x", side="bottom")
-        ttk.Button(buttons, text="Open Feather", command=self.open_dashboard).pack(side="left")
-        ttk.Button(buttons, text="Connect cloud AI", command=self.connect_cloud).pack(side="left", padx=8)
+        ttk.Button(buttons, text="Scan details", command=self.open_dashboard).pack(side="left")
         ttk.Button(buttons, text="Exit", command=self.close).pack(side="right")
         self.root.protocol("WM_DELETE_WINDOW", self.close)
-        self.root.after(250, self.open_dashboard)
         self.root.after(250, self.update_status)
         if self.share_device.get():
             self.start_device_reporting()
@@ -160,7 +159,7 @@ class FeatherPrep:
             if report.get("status") == "unavailable":
                 text = "Feather started, but Windows hardware inventory could not be read. See feather.log."
             else:
-                text = "Read-only hardware scan complete. Open Feather to view the report."
+                text = "Hardware scan complete. Replacement is blocked until a bootable FeatherOS image and matching drivers exist."
             self.status.configure(text=text)
         else:
             self.root.after(500, self.update_status)

@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: "Public release tag (for example v0.6.2)"
+        description: "Public release tag (for example v0.6.3)"
         required: true
-        default: "v0.6.2"
+        default: "v0.6.3"
         type: string
 
 permissions:
@@ -69,11 +69,11 @@ jobs:
 
           Unsigned development installers and apps may be blocked by Smart App Control. Do not disable Windows protection to run this build. A release for protected Windows devices needs a valid RSA code-signing certificate from a trusted provider.
 
-          Source editing takes effect in the stored source tree and may need a rebuilt app to run. Cloud AI is optional; provide your HTTPS endpoint, model, and API key in the Feather Prep window. The API key is kept in memory for that run only.
+          Source editing takes effect in the stored source tree and may need a rebuilt app to run. Hardware is scanned automatically; the bounded report is sent to the configured Vercel registry by default. The sharing checkbox can stop and remove a device report. AI input will be designed for the later installed OS stage.
           "@ | Set-Content -Encoding UTF8 dist/README-Windows.txt
           $compiler = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
           if (-not (Test-Path $compiler)) { throw "Inno Setup compiler was not found." }
-          & $compiler /Qp /DAppVersion=0.6.2 build/windows/FeatherOS.iss
+          & $compiler /Qp /DAppVersion=0.6.3 build/windows/FeatherOS.iss
           if ($LASTEXITCODE -ne 0) { throw "The FeatherOS installer build failed." }
           if ($signed) {
             $signTool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" |

@@ -17,19 +17,24 @@ class RegistryTests(unittest.TestCase):
             self.assertEqual(len(first["token"]), 64)
             self.assertTrue(Path(directory, "device-registry.json").is_file())
 
-    def test_report_contains_only_approved_device_summary(self):
+    def test_report_contains_bounded_hardware_without_unique_identifiers(self):
         report = registry.make_report(
             {"id": "a" * 32, "token": "b" * 64},
             {
                 "computer": [{"Manufacturer": "Test maker", "Model": "Test PC", "SerialNumber": "do-not-send"}],
-                "installed_drivers": [{"DeviceName": "do-not-send"}],
+                "installed_drivers": [{"DeviceName": "Wi-Fi device", "DriverVersion": "3.1", "IsSigned": True}] * 205,
+                "network_hardware": [{"Name": "Wi-Fi", "PNPDeviceID": "PCI\\VEN_8086&DEV_272B&SUBSYS_ABCD\\UNIQUE"}],
+                "bios": [{"Manufacturer": "Test maker", "SMBIOSBIOSVersion": "1.2", "SerialNumber": "private"}],
                 "disks": [{"Model": "do-not-send"}],
             },
         )
         self.assertEqual(report["manufacturer"], "Test maker")
         self.assertEqual(report["model"], "Test PC")
         self.assertNotIn("SerialNumber", report)
-        self.assertNotIn("installed_drivers", report)
+        self.assertEqual(len(report["hardware"]["drivers"]), 200)
+        self.assertEqual(report["hardware"]["devices"][0]["hardwareId"], "PCI\\VEN_8086&DEV_272B")
+        self.assertNotIn("UNIQUE", json.dumps(report))
+        self.assertNotIn("private", json.dumps(report))
         self.assertNotIn("disks", report)
         self.assertTrue(report["consent"])
 
