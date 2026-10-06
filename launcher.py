@@ -1,5 +1,6 @@
 """Feather Prep desktop launcher; its hardware inventory is read-only."""
 import logging
+import json
 import os
 from pathlib import Path
 import shutil
@@ -12,6 +13,7 @@ import webbrowser
 
 from agent import cloud
 from agent.core import Agent
+from agent import registry
 from agent.server import make_http, main as server_main
 
 
@@ -57,11 +59,19 @@ class FeatherPrep:
         self.home.mkdir(parents=True, exist_ok=True)
         seed_editable_source(self.source_dir)
 
+        self.settings_file = self.home / "settings.json"
+        try:
+            settings = json.loads(self.settings_file.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            settings = {}
+
         logging.basicConfig(filename=self.home / "feather.log", level=logging.INFO,
                             format="%(asctime)s %(levelname)s %(message)s")
         self.agent = Agent(self.data_dir, self.source_dir)
         self.http = make_http(self.agent)
         self.stop_event = threading.Event()
+        self.registry_stop = threading.Event()
+        self.registry_thread = None
         self.http_thread = threading.Thread(target=self.http.serve_forever,
                                             name="feather-local-dashboard", daemon=True)
         self.http_thread.start()
@@ -73,7 +83,7 @@ class FeatherPrep:
 
         self.root = tk.Tk()
         self.root.title("Feather Prep")
-        self.root.geometry("460x225")
+        self.root.geometry("460x285")
         self.root.resizable(False, False)
         frame = ttk.Frame(self.root, padding=20)
         frame.pack(fill="both", expand=True)
@@ -82,6 +92,11 @@ class FeatherPrep:
                   wraplength=410).pack(anchor="w", pady=(8, 2))
         self.status = ttk.Label(frame, text="Scanning hardware (read-only)…", wraplength=410)
         self.status.pack(anchor="w", pady=(5, 12))
+        self.share_device = tk.BooleanVar(value=settings.get("share_device") is True)
+        ttk.Checkbutton(frame, text="Include this PC in my Feather device list",
+                        variable=self.share_device, command=self.toggle_device_sharing).pack(anchor="w")
+        self.registry_status = ttk.Label(frame, text="Device list sharing is off.", wraplength=410)
+        self.registry_status.pack(anchor="w", pady=(4, 10))
         buttons = ttk.Frame(frame)
         buttons.pack(fill="x", side="bottom")
         ttk.Button(buttons, text="Open Feather", command=self.open_dashboard).pack(side="left")
@@ -90,6 +105,51 @@ class FeatherPrep:
         self.root.protocol("WM_DELETE_WINDOW", self.close)
         self.root.after(250, self.open_dashboard)
         self.root.after(250, self.update_status)
+        if self.share_device.get():
+            self.start_device_reporting()
+
+    def save_device_preference(self):
+        try:
+            try:
+                settings = json.loads(self.settings_file.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                settings = {}
+            settings["share_device"] = self.share_device.get()
+            temp = self.settings_file.with_suffix(".tmp")
+            temp.write_text(json.dumps(settings), encoding="utf-8")
+            os.replace(temp, self.settings_file)
+        except OSError:
+            logging.exception("Could not save device-list preference")
+
+    def toggle_device_sharing(self):
+        self.save_device_preference()
+        if self.share_device.get():
+            self.start_device_reporting()
+        else:
+            self.registry_stop.set()
+            self.registry_status.configure(text="Sharing is off. Removing this PC from your list…")
+            threading.Thread(target=registry.unregister, args=(self.data_dir,), daemon=True).start()
+
+    def start_device_reporting(self):
+        if not registry.configured():
+            self.registry_status.configure(text="Sharing is enabled, but the device list is not configured in this build yet.")
+            return
+        if self.registry_thread and self.registry_thread.is_alive():
+            return
+        self.registry_stop = threading.Event()
+
+        def update_status(text):
+            try:
+                self.root.after(0, lambda: self.registry_status.configure(text=text))
+            except tk.TclError:
+                pass
+
+        self.registry_thread = threading.Thread(
+            target=registry.report_loop,
+            args=(self.agent, self.data_dir, self.registry_stop, update_status),
+            name="feather-device-registry", daemon=True,
+        )
+        self.registry_thread.start()
 
     def open_dashboard(self):
         webbrowser.open(f"http://127.0.0.1:{self.http.server_port}/", new=1)
@@ -155,6 +215,7 @@ class FeatherPrep:
         if self.stop_event.is_set():
             return
         self.stop_event.set()
+        self.registry_stop.set()
         try:
             self.http.shutdown()
             self.http.server_close()

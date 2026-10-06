@@ -10,6 +10,7 @@ MCP is the tool-connection protocol, not the operating system itself. Feather's 
 - Optional cloud worker for a configured HTTPS chat-completions-compatible model with function calling.
 - MCP stdio tools for computer information, file edits, current-user commands, revisions and dashboard tasks.
 - Automatic read-only hardware scan as soon as the local Feather agent starts on supported Windows and Linux hosts; the AI can read the results through MCP.
+- Dashboard card that displays the scan results and lets the user download a JSON report for review.
 - Persistent user work, tasks, activity and revisions on the hard drive.
 - A download/verification staging script for an existing separate Windows volume, plus a Debian live preview build recipe.
 
