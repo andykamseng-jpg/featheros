@@ -1,7 +1,7 @@
 import { validateReport } from '../lib/records.js';
 import { readRecord, saveReport } from '../lib/blob-records.js';
 
-export const config = { api: { bodyParser: { sizeLimit: '8kb' } } };
+export const config = { api: { bodyParser: { sizeLimit: '64kb' } } };
 
 const enrollmentCounts = new Map();
 const HOUR_MS = 60 * 60 * 1000;

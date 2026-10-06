@@ -15,6 +15,17 @@ test('accepts only a bounded opted-in device report', () => {
   assert.equal(cleaned.consent, undefined);
 });
 
+test('hardware is bounded and unique device paths and unknown fields are dropped', () => {
+  const report = validateReport({ ...good, hardware: {
+    firmwareMode: 'UEFI', bios: { version: '1.2', serial: 'private' },
+    devices: [{ type: 'network_hardware', hardwareId: 'PCI\\VEN_8086&DEV_272B\\INSTANCE', name: 'Wi-Fi' }],
+    drivers: Array.from({length: 300}, () => ({name: 'Wi-Fi', version: '1.0', secret: 'private'})),
+  }});
+  assert.equal(report.hardware.drivers.length, 200);
+  assert.equal(report.hardware.devices[0].hardwareId, '');
+  assert.equal(JSON.stringify(report).includes('private'), false);
+});
+
 test('rejects invalid credentials, missing consent, and missing fields', () => {
   assert.equal(validateReport({ ...good, id: 'bad' }), null);
   assert.equal(validateReport({ ...good, consent: false }), null);

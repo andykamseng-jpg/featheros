@@ -6,11 +6,11 @@ MCP is the tool-connection protocol, not the operating system itself. Feather's 
 
 ## What works in this starter
 
-- Local browser dashboard with typed tasks, optional microphone transcription, speaker replies, revision saving, and a link to a cloud Windows desktop.
+- Windows launcher with an automatic hardware scan, bounded report to the private Vercel registry, and a simple local scan-details page.
 - Optional cloud worker for a configured HTTPS chat-completions-compatible model with function calling.
 - MCP stdio tools for computer information, file edits, current-user commands, revisions and dashboard tasks.
 - Automatic read-only hardware scan as soon as the local Feather agent starts on supported Windows and Linux hosts; the AI can read the results through MCP.
-- Dashboard card that displays the scan results and lets the user download a JSON report for review.
+- Scan-details page that displays the read-only scan results and lets the user download local JSON for review.
 - Persistent user work, tasks, activity and revisions on the hard drive.
 - A download/verification staging script for an existing separate Windows volume, plus a Debian live preview build recipe.
 
@@ -18,13 +18,13 @@ MCP is the tool-connection protocol, not the operating system itself. Feather's 
 
 The development source can run on Python 3.9 or newer on Linux or supported modern Windows; it needs no pip dependencies. Windows users should use the self-contained Windows bundle built by `.github/workflows/build-windows.yml`, which does not require Python to be installed.
 
-Windows release: download `FeatherOS-Setup.exe` from the [FeatherOS v0.6.1 release](https://github.com/andykamseng-jpg/featheros/releases/tag/v0.6.1), then run it on your Windows PC. It installs Feather Prep for the current user and performs a read-only hardware scan; it does not wipe Windows or install a replacement OS. This early test build is unsigned and may be blocked or warned about by Windows security controls; do not disable protections to run it. The ZIP in this project contains source code, not the compiled installer. Read `build/windows/README.md` for build steps, signing, and support limits.
+Windows release: download `FeatherOS-Setup.exe` from the [FeatherOS releases](https://github.com/andykamseng-jpg/featheros/releases), then run it on your Windows PC. It installs Feather Prep for the current user and performs a read-only hardware scan; it does not wipe Windows or install a replacement OS. This early test build is unsigned and may be blocked or warned about by Windows security controls; do not disable protections to run it. The ZIP in this project contains source code, not the compiled installer. Read `build/windows/README.md` for build steps, signing, and support limits.
 
 Linux: run `sh START-AGENT.sh`.
 
-Open http://127.0.0.1:8765 in a current browser. The dashboard is local. It will show "Waiting for an AI connection" until you configure a model or connect an MCP client.
+The Windows launcher does not open a browser automatically. Select **Scan details** for the local report. The desktop window shows whether the registry accepted the report.
 
-In the Windows app, choose **Connect cloud AI** to enter an HTTPS endpoint, model, and provider key. The key stays in process memory only and is cleared when Feather exits. The model is called only after you submit a task. Linux users can still use `python3 -m agent.connect`.
+Manual AI input has been removed from the preparation interface; a later installed FeatherOS stage can offer a CLI. Existing MCP tools remain available for development.
 
 To let the AI execute commands as your user account, start with `python3 -m agent.server --enable-commands`.
 
@@ -38,7 +38,7 @@ See design/MCP-CONNECTION.md for MCP configuration and the optional cloud worker
 
 Feather's intended sequence is: install the Feather Prep app into the existing Windows installation -> start Feather for the first time -> Feather scans the local computer automatically -> the connected AI reads the report -> Feather identifies a compatible setup path. This scan does not repartition the disk, change boot settings, or erase Windows.
 
-The current agent implements automatic read-only inventory for Windows and Linux. Its Windows probe uses PowerShell/WMI and includes OS, processor, memory, firmware, disk, graphics, network and a bounded list of drivers. It has only been tested with simulated PowerShell output, not on your laptop; older Windows versions need compatible native launchers and their own boot adapters.
+The Windows launcher now sends a bounded hardware report to the private Vercel registry by default after scanning; the checkbox can stop future reports and unregister this PC. The server must be reachable, and its deployment protection currently blocks unattended check-ins. The current agent implements automatic read-only inventory for Windows and Linux. Its Windows probe uses PowerShell/WMI and includes OS, processor, memory, firmware, disk, graphics, network and a bounded list of drivers. It has only been tested with simulated PowerShell output, not on your laptop; older Windows versions need compatible native launchers and their own boot adapters.
 
 The goal is to let people start Feather Prep from any Windows generation they still use, from legacy releases through current Windows. The current ZIP does not yet provide this: the Python/browser core requires a supported modern runtime, and there is no tested universal launcher. Feather Prep needs separate, tested adapters for Windows version/build, CPU architecture, firmware boot mode, disk layout, and available network/TLS support.
 

@@ -17,6 +17,27 @@ function clean(value, max = 120) {
   return typeof value === 'string' ? value.trim().replace(/[\u0000-\u001f\u007f]/g, '').slice(0, max) : '';
 }
 
+function hardwareReport(input) {
+  const h = input && typeof input === 'object' && !Array.isArray(input) ? input : {};
+  const obj = (v) => v && typeof v === 'object' && !Array.isArray(v) ? v : {};
+  const b = obj(h.bios), board = obj(h.board);
+  const list = (v, max) => Array.isArray(v) ? v.slice(0, max).map(obj) : [];
+  return {
+    firmwareMode: ['BIOS', 'UEFI', 'unknown'].includes(h.firmwareMode) ? h.firmwareMode : 'unknown',
+    secureBoot: typeof h.secureBoot === 'boolean' ? h.secureBoot : null,
+    bios: { manufacturer: clean(b.manufacturer, 80), version: clean(b.version, 50) },
+    board: { manufacturer: clean(board.manufacturer, 80), model: clean(board.model, 100) },
+    devices: list(h.devices, 48).map(d => ({
+      type: ['graphics', 'network_hardware'].includes(d.type) ? d.type : '',
+      name: clean(d.name, 100),
+      hardwareId: /^(PCI\\VEN_[0-9A-F]{4}&DEV_[0-9A-F]{4}|USB\\VID_[0-9A-F]{4}&PID_[0-9A-F]{4})$/i.test(d.hardwareId || '') ? d.hardwareId.toUpperCase() : '',
+      driverVersion: clean(d.driverVersion, 40),
+    })),
+    drivers: list(h.drivers, 200).map(d => ({ name: clean(d.name, 100), version: clean(d.version, 40),
+      provider: clean(d.provider, 80), signed: typeof d.signed === 'boolean' ? d.signed : null })),
+  };
+}
+
 export function validateReport(body) {
   if (!body || typeof body !== 'object' || Array.isArray(body)) return null;
   const report = {
@@ -28,6 +49,8 @@ export function validateReport(body) {
     os: clean(body.os, 40),
     osVersion: clean(body.osVersion, 50),
     appVersion: clean(body.appVersion, 32),
+    preflight: ['scan_unavailable', 'replacement_image_not_available'].includes(body.preflight) ? body.preflight : 'replacement_image_not_available',
+    hardware: hardwareReport(body.hardware),
     consent: body.consent === true,
   };
   if (!DEVICE_ID_RE.test(report.id) || !DEVICE_TOKEN_RE.test(report.token) || !report.consent) return null;
