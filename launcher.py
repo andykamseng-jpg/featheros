@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import subprocess
 import sys
 import threading
 import tkinter as tk
@@ -13,6 +14,7 @@ import webbrowser
 from agent import cloud
 from agent.core import Agent
 from agent import registry
+from agent import updater
 from agent.server import make_http, main as server_main
 
 
@@ -71,6 +73,7 @@ class FeatherPrep:
         self.stop_event = threading.Event()
         self.registry_stop = threading.Event()
         self.registry_thread = None
+        self.update_pending = False
         self.http_thread = threading.Thread(target=self.http.serve_forever,
                                             name="feather-local-dashboard", daemon=True)
         self.http_thread.start()
@@ -82,7 +85,7 @@ class FeatherPrep:
 
         self.root = tk.Tk()
         self.root.title("Feather Prep")
-        self.root.geometry("500x260")
+        self.root.geometry("500x290")
         self.root.resizable(False, False)
         frame = ttk.Frame(self.root, padding=20)
         frame.pack(fill="both", expand=True)
@@ -96,6 +99,8 @@ class FeatherPrep:
                         variable=self.share_device, command=self.toggle_device_sharing).pack(anchor="w")
         self.registry_status = ttk.Label(frame, text="Waiting for hardware scan…", wraplength=450)
         self.registry_status.pack(anchor="w", pady=(4, 10))
+        self.update_status_label = ttk.Label(frame, text="Checking for Feather updates…" if os.name == "nt" else "", wraplength=450)
+        self.update_status_label.pack(anchor="w", pady=(0, 5))
         ttk.Label(frame, text="Sends PC name, model, firmware version, device IDs and installed driver names/versions; no files or serial numbers.",
                   wraplength=450).pack(anchor="w")
         buttons = ttk.Frame(frame)
@@ -106,6 +111,49 @@ class FeatherPrep:
         self.root.after(250, self.update_status)
         if self.share_device.get():
             self.start_device_reporting()
+        if os.name == "nt" and os.environ.get("FEATHER_AUTO_UPDATE") != "0":
+            threading.Thread(target=self.check_updates, name="feather-auto-update", daemon=True).start()
+
+    def check_updates(self):
+        """Check on startup and twice daily; never run a download that fails verification."""
+        while not self.stop_event.is_set():
+            try:
+                release = updater.fetch_latest()
+                if release:
+                    self.show_update_status("Downloading verified " + release["tag"] + " update…")
+                    installer = updater.stage_release(self.home, release)
+                    self.root.after(0, lambda: self.install_update(installer, release["tag"]))
+                    return
+                self.show_update_status("Feather Prep is up to date.")
+                delay = 12 * 60 * 60
+            except Exception:
+                logging.exception("Automatic update check failed")
+                self.show_update_status("Update check unavailable; retrying later.")
+                delay = 10 * 60
+            if self.stop_event.wait(delay):
+                return
+
+    def show_update_status(self, value):
+        try:
+            self.root.after(0, lambda: self.update_status_label.configure(text=value))
+        except tk.TclError:
+            pass
+
+    def install_update(self, installer, tag):
+        if self.stop_event.is_set() or self.update_pending:
+            return
+        self.update_pending = True
+        self.update_status_label.configure(text="Installing verified " + tag + "; Feather will restart.")
+        try:
+            subprocess.Popen([str(installer), "/SILENT", "/NORESTART", "/CLOSEAPPLICATIONS",
+                              "/FORCECLOSEAPPLICATIONS", "/NORESTARTAPPLICATIONS"],
+                             close_fds=True)
+        except OSError:
+            logging.exception("Could not start verified Feather installer")
+            self.update_pending = False
+            self.update_status_label.configure(text="Update could not start; retry on next launch.")
+            return
+        self.close()
 
     def save_device_preference(self):
         try:

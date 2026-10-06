@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: "Public release tag (for example v0.6.3)"
+        description: "Public release tag (for example v0.6.4)"
         required: true
-        default: "v0.6.3"
+        default: "v0.6.4"
         type: string
 
 permissions:
@@ -69,11 +69,11 @@ jobs:
 
           Unsigned development installers and apps may be blocked by Smart App Control. Do not disable Windows protection to run this build. A release for protected Windows devices needs a valid RSA code-signing certificate from a trusted provider.
 
-          Source editing takes effect in the stored source tree and may need a rebuilt app to run. Hardware is scanned automatically; the bounded report is sent to the configured Vercel registry by default. The sharing checkbox can stop and remove a device report. AI input will be designed for the later installed OS stage.
+          Source editing takes effect in the stored source tree and may need a rebuilt app to run. Hardware is scanned automatically; the bounded report is sent to the configured Vercel registry by default. Future Feather Prep releases are checked automatically, downloaded from this repository, and verified against their published SHA-256 digest before Setup runs. Existing 0.6.3 and earlier installations need this installer once. The sharing checkbox can stop and remove a device report. AI input will be designed for the later installed OS stage.
           "@ | Set-Content -Encoding UTF8 dist/README-Windows.txt
           $compiler = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
           if (-not (Test-Path $compiler)) { throw "Inno Setup compiler was not found." }
-          & $compiler /Qp /DAppVersion=0.6.3 build/windows/FeatherOS.iss
+          & $compiler /Qp /DAppVersion=0.6.4 build/windows/FeatherOS.iss
           if ($LASTEXITCODE -ne 0) { throw "The FeatherOS installer build failed." }
           if ($signed) {
             $signTool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" |

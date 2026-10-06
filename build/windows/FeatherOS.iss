@@ -1,5 +1,5 @@
 #ifndef AppVersion
-  #define AppVersion "0.6.3"
+  #define AppVersion "0.6.4"
 #endif
 
 [Setup]
@@ -17,6 +17,8 @@ OutputBaseFilename=FeatherOS-Setup
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
+CloseApplications=force
+RestartApplications=no
 UninstallDisplayName=Feather Prep
 
 [Files]
@@ -30,3 +32,4 @@ Name: "{group}\Uninstall Feather Prep"; Filename: "{uninstallexe}"
 
 [Run]
 Filename: "{app}\FeatherPrep.exe"; Description: "Launch Feather Prep"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\FeatherPrep.exe"; Flags: nowait skipifnotsilent
