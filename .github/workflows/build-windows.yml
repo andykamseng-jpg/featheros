@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: "Public release tag (for example v0.6.1)"
+        description: "Public release tag (for example v0.6.2)"
         required: true
-        default: "v0.6.1"
+        default: "v0.6.2"
         type: string
 
 permissions:
@@ -73,7 +73,7 @@ jobs:
           "@ | Set-Content -Encoding UTF8 dist/README-Windows.txt
           $compiler = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
           if (-not (Test-Path $compiler)) { throw "Inno Setup compiler was not found." }
-          & $compiler /Qp /DAppVersion=0.6.1 build/windows/FeatherOS.iss
+          & $compiler /Qp /DAppVersion=0.6.2 build/windows/FeatherOS.iss
           if ($LASTEXITCODE -ne 0) { throw "The FeatherOS installer build failed." }
           if ($signed) {
             $signTool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" |

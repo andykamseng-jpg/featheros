@@ -1,0 +1,11 @@
+{
+  "name": "featheros-registry",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.js"
+  },
+  "dependencies": {
+    "@vercel/blob": "^2.3.0"
+  }
+}
