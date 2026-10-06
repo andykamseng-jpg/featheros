@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: "Public release tag (for example v0.6.4)"
+        description: "Public release tag (for example v0.6.5)"
         required: true
-        default: "v0.6.4"
+        default: "v0.6.5"
         type: string
 
 permissions:
@@ -18,6 +18,7 @@ jobs:
     env:
       FEATHER_SIGNING_CERT_BASE64: ${{ secrets.FEATHER_SIGNING_CERT_BASE64 }}
       FEATHER_SIGNING_CERT_PASSWORD: ${{ secrets.FEATHER_SIGNING_CERT_PASSWORD }}
+      RELEASE_TAG: ${{ inputs.release_tag }}
     outputs:
       suffix: ${{ steps.bundle.outputs.suffix }}
     steps:
@@ -73,7 +74,77 @@ jobs:
           "@ | Set-Content -Encoding UTF8 dist/README-Windows.txt
           $compiler = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
           if (-not (Test-Path $compiler)) { throw "Inno Setup compiler was not found." }
-          & $compiler /Qp /DAppVersion=0.6.4 build/windows/FeatherOS.iss
+          $releaseVersion = $env:RELEASE_TAG -replace '^v', ''
+          if ($releaseVersion -notmatch '^\d+\.\d+\.\d+
+          if ($LASTEXITCODE -ne 0) { throw "The FeatherOS installer build failed." }
+          if ($signed) {
+            $signTool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" |
+              Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
+            & $signTool sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 `
+              /f (Join-Path $env:RUNNER_TEMP "feather-signing.pfx") /p $env:FEATHER_SIGNING_CERT_PASSWORD `
+              dist/FeatherOS-Setup.exe
+            if ($LASTEXITCODE -ne 0) { throw "Signing the installer failed." }
+            & $signTool verify /pa /all dist/FeatherOS-Setup.exe
+            if ($LASTEXITCODE -ne 0) { throw "The installer signature could not be verified." }
+          }
+          $certificatePath = Join-Path $env:RUNNER_TEMP "feather-signing.pfx"
+          if (Test-Path $certificatePath) { Remove-Item $certificatePath -Force }
+          Compress-Archive -Path dist/FeatherOS-Setup.exe,dist/README-Windows.txt `
+            -DestinationPath "FeatherOS-Setup-$suffix.zip" -Force
+          "suffix=$suffix" >> $env:GITHUB_OUTPUT
+      - name: Upload Windows bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: FeatherOS-Setup-${{ steps.bundle.outputs.suffix }}
+          path: |
+            FeatherOS-Setup-*.zip
+            dist/FeatherOS-Setup.exe
+            dist/README-Windows.txt
+          if-no-files-found: error
+
+  publish-release:
+    needs: build
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: FeatherOS-Setup-${{ needs.build.outputs.suffix }}
+          path: release-files
+      - name: Publish downloadable GitHub release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          $notes = @"
+          FeatherOS Feather Prep $env:RELEASE_TAG (early test build).
+
+          This per-user installer runs inside Windows and performs a read-only hardware scan. It does not erase Windows or prepare a bootable FeatherOS system.
+
+          This development build is unsigned unless a trusted RSA signing certificate was configured in repository Actions secrets. Smart App Control may block the unsigned build. The public source repository contains the Windows build workflow and scan code.
+          "@
+          $notesPath = Join-Path $env:RUNNER_TEMP "feather-release-notes.txt"
+          $notes | Set-Content -Encoding UTF8 $notesPath
+          $installerPath = Get-ChildItem "release-files" -Filter "FeatherOS-Setup.exe" -File -Recurse |
+            Select-Object -First 1 -ExpandProperty FullName
+          $readmePath = Get-ChildItem "release-files" -Filter "README-Windows.txt" -File -Recurse |
+            Select-Object -First 1 -ExpandProperty FullName
+          if (-not $installerPath -or -not $readmePath) { throw "The built installer or release notes were not found in the downloaded artifact." }
+          gh release create $env:RELEASE_TAG `
+            $installerPath $readmePath `
+            --title "FeatherOS $env:RELEASE_TAG" `
+            --notes-file $notesPath `
+            --target $env:GITHUB_SHA
+          if ($LASTEXITCODE -ne 0) { throw "GitHub release creation failed." }
+) { throw "Release tag must be vMAJOR.MINOR.PATCH." }
+          $agentVersion = python -c "from agent import __version__; print(__version__)"
+          if ($LASTEXITCODE -ne 0 -or $agentVersion -ne $releaseVersion) {
+            throw "Release tag version $releaseVersion must match the agent version $agentVersion."
+          }
+          & $compiler /Qp "/DAppVersion=$releaseVersion" build/windows/FeatherOS.iss
           if ($LASTEXITCODE -ne 0) { throw "The FeatherOS installer build failed." }
           if ($signed) {
             $signTool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" |
