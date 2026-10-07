@@ -127,8 +127,9 @@ class FeatherPrep:
 
         self.root = tk.Tk()
         self.root.title("Feather Prep")
-        self.root.geometry("500x290")
-        self.root.resizable(False, False)
+        self.root.geometry("560x380")
+        self.root.resizable(True, True)
+        self.root.minsize(560, 380)
         frame = ttk.Frame(self.root, padding=20)
         frame.pack(fill="both", expand=True)
         ttk.Label(frame, text="Feather Prep", font=("Segoe UI", 16, "bold")).pack(anchor="w")
