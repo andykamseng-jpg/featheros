@@ -10,6 +10,7 @@ import urllib.error
 import urllib.request
 
 from . import __version__
+from .resources import resource_profile
 
 
 # The installed app uses the FeatherOS registry; tests and local setups may override it.
@@ -77,6 +78,7 @@ def hardware_summary(hardware):
                             "hardwareId": _hardware_id(row.get("PNPDeviceID")),
                             "driverVersion": _text(row.get("DriverVersion"), 40)})
     return {
+        "resources": resource_profile(hardware),
         "firmwareMode": _text(hardware.get("firmware_mode"), 12),
         "secureBoot": hardware.get("secure_boot") if isinstance(hardware.get("secure_boot"), bool) else None,
         "bios": {"manufacturer": _text(bios.get("Manufacturer"), 80),

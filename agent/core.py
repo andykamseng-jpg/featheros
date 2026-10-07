@@ -11,6 +11,8 @@ import time
 import uuid
 import zipfile
 
+from .resources import resource_profile
+
 
 WINDOWS_INVENTORY_SCRIPT = r"""
 $ErrorActionPreference = 'Stop'
@@ -38,7 +40,7 @@ $drivers = @(Read-Class 'Win32_PnPSignedDriver' @('DeviceName','DriverVersion','
 if ($drivers.Count -gt 200) { $drivers = @($drivers | Select-Object -First 200) }
 $report = [ordered]@{
   collection_mode = 'read_only'
-  operating_system = @(Read-Class 'Win32_OperatingSystem' @('Caption','Version','BuildNumber','OSArchitecture'))
+  operating_system = @(Read-Class 'Win32_OperatingSystem' @('Caption','Version','BuildNumber','OSArchitecture','FreePhysicalMemory'))
   computer = @(Read-Class 'Win32_ComputerSystem' @('Manufacturer','Model','SystemType','TotalPhysicalMemory'))
   processors = @(Read-Class 'Win32_Processor' @('Name','AddressWidth','DataWidth','NumberOfCores','NumberOfLogicalProcessors'))
   firmware_mode = $firmware
@@ -48,7 +50,7 @@ $report = [ordered]@{
   memory_modules = @(Read-Class 'Win32_PhysicalMemory' @('Capacity','Speed','Manufacturer','PartNumber'))
   disks = @(Read-Class 'Win32_DiskDrive' @('Model','InterfaceType','MediaType','Size'))
   volumes = @(Read-Class 'Win32_LogicalDisk' @('DeviceID','FileSystem','Size','FreeSpace'))
-  graphics = @(Read-Class 'Win32_VideoController' @('Name','DriverVersion','PNPDeviceID'))
+  graphics = @(Read-Class 'Win32_VideoController' @('Name','DriverVersion','PNPDeviceID','AdapterRAM'))
   network_hardware = @(Read-Class 'Win32_NetworkAdapter' @('Name','Manufacturer','PNPDeviceID','NetEnabled'))
   installed_drivers = $drivers
 }
@@ -253,6 +255,7 @@ class Agent:
             return {"os": platform.system(), "release": platform.release(),
                     "architecture": platform.machine(), "disk_free_bytes": usage.free,
                     "hardware": hardware,
+                    "resource_profile": resource_profile(hardware),
                     "roots": {k: str(v) for k, v in self.roots.items()},
                     "commands_enabled": self.enable_commands}
         if name == "file_list":

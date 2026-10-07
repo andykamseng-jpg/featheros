@@ -22,7 +22,17 @@ function hardwareReport(input) {
   const obj = (v) => v && typeof v === 'object' && !Array.isArray(v) ? v : {};
   const b = obj(h.bios), board = obj(h.board);
   const list = (v, max) => Array.isArray(v) ? v.slice(0, max).map(obj) : [];
+  const r = obj(h.resources);
+  const integer = (v, max = Number.MAX_SAFE_INTEGER) => Number.isSafeInteger(v) && v >= 0 && v <= max ? v : null;
   return {
+    resources: {
+      processors: list(r.processors, 16).map(p => ({ name: clean(p.name, 100), cores: integer(p.cores, 4096), logicalProcessors: integer(p.logicalProcessors, 8192) })),
+      memoryTotalBytes: integer(r.memoryTotalBytes), memoryAvailableBytes: integer(r.memoryAvailableBytes),
+      graphics: list(r.graphics, 16).map(g => ({ name: clean(g.name, 100), reportedAdapterBytes: integer(g.reportedAdapterBytes) })),
+      storage: list(r.storage, 16).map(d => ({ model: clean(d.model, 100), sizeBytes: integer(d.sizeBytes) })),
+      modelFit: 'benchmark_required',
+      graphicsMemoryNote: 'Reported adapter memory may be incomplete and is not a usable VRAM budget; integrated graphics shares system RAM.',
+    },
     firmwareMode: ['BIOS', 'UEFI', 'unknown'].includes(h.firmwareMode) ? h.firmwareMode : 'unknown',
     secureBoot: typeof h.secureBoot === 'boolean' ? h.secureBoot : null,
     bios: { manufacturer: clean(b.manufacturer, 80), version: clean(b.version, 50) },
