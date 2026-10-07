@@ -27,6 +27,8 @@ The Windows launcher does not open a browser automatically. Select **Open Feathe
 
 Open **Feather AI** from the desktop app to submit a task. Connect a local model server in the app to keep requests on this PC, or connect an HTTPS online provider. Local AI is selected by default when configured; online AI can be selected from the app. This build connects to an existing local OpenAI-compatible endpoint and does not download or bundle model files. The endpoint must be loopback (`localhost`, `127.0.0.1`, or `::1`).
 
+The chat page displays recent tasks and replies, but this prototype starts a fresh model context for each submission; earlier messages are not passed back into the next request.
+
 To let the AI execute commands as your user account, start with `python3 -m agent.server --enable-commands`.
 
 Commands run with that account's authority; file-tool roots do not restrict commands. Start the agent once: an MCP client launching it also serves the dashboard, so stop a standalone instance before launching that client, or select another --port and data directory.
