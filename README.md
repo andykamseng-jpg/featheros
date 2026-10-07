@@ -63,3 +63,7 @@ Tests cover the agent, MCP messages, local HTTP access, revisions, task persiste
 ### Hardware resource scan
 
 Feather Prep scans hardware automatically after launch. `system_info.resource_profile` and the registry hardware details include bounded CPU names/core counts, total and available RAM, graphics adapter memory estimates, and storage models/capacities. Missing measurements remain null. Windows graphics adapter memory is not a reliable usable VRAM budget, especially for integrated graphics; model fit always requires a local benchmark. No model weights are bundled or downloaded by this scan. The installer runs inside Windows; a replacement FeatherOS boot image is not available.
+
+### Automatic update rules
+
+No recurring 30-minute timer: the current app checks once at startup. It accepts a strictly newer official GitHub release only after size and SHA-256 verification. Each release can launch its automatic installer once per PC; a persisted claim prevents restart loops and concurrent launches. Failed installation of an already-started release requires an explicit manual installer retry. Setup removes the legacy scheduled task and launches Feather automatically. The release version is baked into both compiled apps and verified by running the console app without a valid version environment variable. Live release notification and direct Feather-to-Feather sync are still unfinished.
