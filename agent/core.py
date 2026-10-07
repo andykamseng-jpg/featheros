@@ -11,6 +11,8 @@ import time
 import uuid
 import zipfile
 
+from .capabilities import profile_hardware
+
 
 WINDOWS_INVENTORY_SCRIPT = r"""
 $ErrorActionPreference = 'Stop'
@@ -254,7 +256,8 @@ class Agent:
                     "architecture": platform.machine(), "disk_free_bytes": usage.free,
                     "hardware": hardware,
                     "roots": {k: str(v) for k, v in self.roots.items()},
-                    "commands_enabled": self.enable_commands}
+                    "commands_enabled": self.enable_commands,
+                    "ai_capabilities": profile_hardware(hardware, os.cpu_count())}
         if name == "file_list":
             p = self.path(root, a.get("path", "."))
             return [{"name": x.name, "directory": x.is_dir()} for x in sorted(p.iterdir())][:500]
@@ -361,3 +364,4 @@ class Agent:
             self.tasks.append(t)
             self.save_tasks()
             return dict(t)
+

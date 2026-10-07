@@ -7,7 +7,7 @@ import sys
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from .core import Agent, TOOLS
-from . import cloud
+from . import cloud, local_ai, runtime
 
 
 VERSIONS = {"2024-11-05", "2025-03-26", "2025-06-18", "2025-11-25"}
@@ -94,6 +94,8 @@ def make_http(agent, port=8765):
                 with agent.lock:
                     body = {"system": agent.call("system_info", {}), "tasks": list(agent.tasks),
                             "cloud_configured": cloud.configured(),
+                            "local_ai_configured": local_ai.configured(),
+                            "ai_backend": runtime.selected_backend(),
                             "mcp_connected": agent.mcp_connected,
                             "revisions": agent.call("revision_list", {})}
                 return self.reply(200, json.dumps(body))
@@ -132,8 +134,8 @@ def main(default_data_dir="feather-data", default_source_dir=None):
     server = make_http(agent, args.port)
     stop = threading.Event()
     threading.Thread(target=server.serve_forever, daemon=True).start()
-    if cloud.configured():
-        threading.Thread(target=cloud.worker, args=(agent, stop), daemon=True).start()
+    if runtime.configured():
+        threading.Thread(target=runtime.worker, args=(agent, stop), daemon=True).start()
     if sys.stderr is not None:
         print("Feather desktop: http://127.0.0.1:" + str(server.server_port), file=sys.stderr, flush=True)
     try:
@@ -151,3 +153,4 @@ def main(default_data_dir="feather-data", default_source_dir=None):
 
 if __name__ == "__main__":
     main()
+

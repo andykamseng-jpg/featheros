@@ -8,6 +8,7 @@ MCP is the tool-connection protocol, not the operating system itself. Feather's 
 
 - Windows launcher with an automatic hardware scan, bounded report to the private Vercel registry, and a simple local scan-details page.
 - Optional cloud worker for a configured HTTPS chat-completions-compatible model with function calling.
+- A local-first model adapter for an OpenAI-compatible server on the same computer, with a cautious RAM-based resource hint and a simple local Feather AI chat page.
 - MCP stdio tools for computer information, file edits, current-user commands, revisions and dashboard tasks.
 - Automatic read-only hardware scan as soon as the local Feather agent starts on supported Windows and Linux hosts; the AI can read the results through MCP.
 - Scan-details page that displays the read-only scan results and lets the user download local JSON for review.
@@ -22,15 +23,17 @@ Windows release: download the versioned installer (for example, `FeatherOS-Setup
 
 Linux: run `sh START-AGENT.sh`.
 
-The Windows launcher does not open a browser automatically. Select **Scan details** for the local report. The desktop window shows whether the registry accepted the report.
+The Windows launcher does not open a browser automatically. Select **Open Feather AI** to open the local chat and hardware report. The desktop window shows whether the registry accepted the report.
 
-Manual AI input has been removed from the preparation interface; a later installed FeatherOS stage can offer a CLI. Existing MCP tools remain available for development.
+Open **Feather AI** from the desktop app to submit a task. Connect a local model server in the app to keep requests on this PC, or connect an HTTPS online provider. Local AI is selected by default when configured; online AI can be selected from the app. This build connects to an existing local OpenAI-compatible endpoint and does not download or bundle model files. The endpoint must be loopback (`localhost`, `127.0.0.1`, or `::1`).
 
 To let the AI execute commands as your user account, start with `python3 -m agent.server --enable-commands`.
 
 Commands run with that account's authority; file-tool roots do not restrict commands. Start the agent once: an MCP client launching it also serves the dashboard, so stop a standalone instance before launching that client, or select another --port and data directory.
 
 Once Feather is running on a computer, its AI can call `system_info` to collect OS, processor, memory, firmware, disk, graphics, network and installed-driver details locally. This inventory does not change the computer. The current Windows probe requires a supported Python runtime and PowerShell; Feather Prep still needs a trusted, tested launcher before it can start on every Windows generation.
+
+The `system_info` result also includes an AI resource profile based on RAM, logical processor count and graphics names. It is only a planning hint; it does not guarantee a model will fit or run well. Benchmark local models on each target computer before automatically choosing or downloading a model. See `design/LOCAL-AI-CORE.md` for this stage's limits.
 
 See design/MCP-CONNECTION.md for MCP configuration and the optional cloud worker. No account, hosted model, provider credential, subscription or perpetual cloud session is included. Connection checks and real provider calls need your configured service. An old laptop can use cloud inference without a local model/GPU, but its installed Feather runtime still needs drivers for the actual hardware.
 
@@ -59,3 +62,4 @@ Microphone support depends on a current browser implementing SpeechRecognition a
 Run `python3 -m unittest discover -s tests -v`.
 
 Tests cover the agent, MCP messages, local HTTP access, revisions, task persistence, a simulated cloud tool loop and installation-sequence invariants. Windows scripts, a real provider, physical audio, the live build and an OS replacement require separate testing.
+

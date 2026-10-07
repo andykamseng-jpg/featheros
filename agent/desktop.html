@@ -4,25 +4,83 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
-  <title>Feather Prep · Scan details</title>
+  <title>Feather AI</title>
   <style>
-    :root{font-family:system-ui,sans-serif;color-scheme:dark;background:#101927;color:#eef5f7}body{margin:0}main{max-width:760px;margin:auto;padding:44px 22px}h1{font-size:2rem}p{line-height:1.55;color:#b9cad4}.card{background:#1b2a3a;border:1px solid #365064;border-radius:14px;padding:22px;margin:20px 0}.step{padding:12px 0;border-bottom:1px solid #365064}.step:last-child{border:0}.label{font-weight:650}.note{font-size:.9rem}button{padding:10px 14px;border:0;border-radius:8px;background:#b1e7d1;color:#142820;font-weight:650;cursor:pointer}pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:.8rem;max-height:400px;overflow:auto}details{margin-top:18px}summary{cursor:pointer}
+    :root{font-family:system-ui,sans-serif;color-scheme:dark;background:#101927;color:#eef5f7}body{margin:0}main{max-width:760px;margin:auto;padding:36px 22px}h1{font-size:2rem}p{line-height:1.55;color:#b9cad4}.card{background:#1b2a3a;border:1px solid #365064;border-radius:14px;padding:22px;margin:18px 0}.step{padding:12px 0;border-bottom:1px solid #365064}.step:last-child{border:0}.label{font-weight:650}.note{font-size:.9rem}button{padding:10px 14px;border:0;border-radius:8px;background:#b1e7d1;color:#142820;font-weight:650;cursor:pointer}button:disabled{opacity:.5;cursor:not-allowed}pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:.8rem;max-height:400px;overflow:auto}details{margin-top:18px}summary{cursor:pointer}.messages{display:flex;flex-direction:column;gap:10px;max-height:380px;overflow:auto}.message{padding:10px 13px;border-radius:10px;white-space:pre-wrap;overflow-wrap:anywhere}.user{background:#29465b;align-self:flex-end;max-width:90%}.assistant{background:#243448;align-self:flex-start;max-width:95%}textarea{box-sizing:border-box;width:100%;min-height:84px;margin:12px 0;padding:12px;border-radius:8px;background:#101927;color:#eef5f7;border:1px solid #4a6479;font:inherit}form{margin-top:14px}
   </style>
 </head>
 <body><main>
-  <h1>🪶 Feather Prep</h1>
-  <p>The hardware scan runs automatically. Feather sends a bounded report to your Vercel registry when sharing is enabled in the desktop app.</p>
+  <h1>🪶 Feather AI</h1>
+  <p id="ai-status">Checking Feather’s AI connection…</p>
   <section class="card">
-    <div class="step"><span class="label">1. Scan hardware</span><p id="scan">Checking…</p></div>
-    <div class="step"><span class="label">2. Report to registry</span><p>Check the desktop app for delivery status.</p></div>
-    <div class="step"><span class="label">3. Installation readiness</span><p id="ready">Waiting for scan…</p></div>
+    <div id="messages" class="messages" aria-live="polite"></div>
+    <form id="task-form">
+      <label for="task">Ask Feather</label>
+      <textarea id="task" maxlength="10000" placeholder="Ask a question or request a simple task…" required></textarea>
+      <button id="send" type="submit">Send</button>
+      <p id="chat-error" role="status"></p>
+    </form>
   </section>
-  <p class="note">Windows has not been partitioned, erased, or replaced. Firmware and replacement OS drivers can only be loaded after a tested bootable OS image exists.</p>
-  <details><summary>Hardware scan details</summary><pre id="report"></pre><button id="download" type="button">Download scan report</button></details>
+  <section class="card">
+    <div class="step"><span class="label">Hardware scan</span><p id="scan">Checking…</p></div>
+    <div class="step"><span class="label">FeatherOS readiness</span><p id="ready">Waiting for scan…</p></div>
+    <p class="note">This preparation build does not partition or erase Windows. Windows replacement waits for a tested bootable FeatherOS image and matching drivers.</p>
+    <details><summary>Hardware scan details</summary><pre id="report"></pre><button id="download" type="button">Download scan report</button></details>
+  </section>
   <script>
-    const token='__TOKEN__';let report={};
-    async function load(){try{const response=await fetch('/api/state',{headers:{'X-Feather-Token':token}});if(!response.ok)throw Error(`Local scan unavailable (${response.status})`);const state=await response.json();report=state.system.hardware||{};const failed=report.status==='unavailable';const scanning=report.status==='scanning';document.getElementById('scan').textContent=scanning?'Scanning…':failed?'Scan unavailable':'Read-only scan complete';document.getElementById('ready').textContent=scanning?'Waiting for scan…':failed?'Blocked: scan unavailable':'Blocked: a bootable FeatherOS image and matching drivers are not ready';document.getElementById('report').textContent=JSON.stringify(report,null,2);if(scanning)setTimeout(load,1500)}catch(e){document.getElementById('scan').textContent=e.message}}
+    const token='__TOKEN__';
+    let report={};
+    const input=document.getElementById('task');
+    const send=document.getElementById('send');
+    const status=document.getElementById('ai-status');
+    async function load(){
+      try{
+        const response=await fetch('/api/state',{headers:{'X-Feather-Token':token}});
+        if(!response.ok)throw Error(`Feather status unavailable (${response.status})`);
+        const state=await response.json();
+        report=state.system.hardware||{};
+        const backend=state.ai_backend||'none';
+        status.textContent=backend==='local'?'Local AI selected. Tasks stay on this computer.':backend==='online'?'Online AI selected. Tasks are sent to your configured provider.':'No AI connected. Connect Local AI or Online AI in Feather Prep.';
+        input.disabled=backend==='none';
+        send.disabled=backend==='none';
+        const messages=document.getElementById('messages');
+        messages.replaceChildren();
+        for(const task of (state.tasks||[]).slice(-20)){
+          const user=document.createElement('div');
+          user.className='message user';
+          user.textContent=task.text||'';
+          messages.append(user);
+          const assistant=document.createElement('div');
+          assistant.className='message assistant';
+          assistant.textContent=task.state==='done'?(task.reply||''):(task.state==='working'?'Feather is working…':task.state==='interrupted'?'Task paused when Feather stopped.':'Waiting for Feather…');
+          messages.append(assistant);
+        }
+        messages.scrollTop=messages.scrollHeight;
+        const failed=report.status==='unavailable';
+        const scanning=report.status==='scanning';
+        document.getElementById('scan').textContent=scanning?'Scanning…':failed?'Scan unavailable':'Read-only scan complete';
+        document.getElementById('ready').textContent=scanning?'Waiting for scan…':failed?'Blocked: scan unavailable':'Blocked: a bootable FeatherOS image and matching drivers are not ready';
+        document.getElementById('report').textContent=JSON.stringify(state.system.ai_capabilities?{hardware:report,ai_capabilities:state.system.ai_capabilities}:report,null,2);
+      }catch(e){status.textContent=e.message}
+      setTimeout(load,2000);
+    }
+    document.getElementById('task-form').addEventListener('submit',async event=>{
+      event.preventDefault();
+      const text=input.value.trim();
+      if(!text)return;
+      send.disabled=true;
+      document.getElementById('chat-error').textContent='';
+      try{
+        const response=await fetch('/api/task',{method:'POST',headers:{'X-Feather-Token':token,'Content-Type':'application/json'},body:JSON.stringify({text})});
+        const result=await response.json();
+        if(!response.ok)throw Error(result.error||'Feather could not queue this task.');
+        input.value='';
+      }catch(e){document.getElementById('chat-error').textContent=e.message}
+      send.disabled=false;
+      input.focus();
+    });
     document.getElementById('download').onclick=()=>{const url=URL.createObjectURL(new Blob([JSON.stringify(report,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='feather-hardware-scan.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
     load();
   </script>
 </main></body></html>
+
