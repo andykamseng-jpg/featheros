@@ -31,9 +31,9 @@ Name: "{group}\Feather Prep"; Filename: "{app}\FeatherPrep\FeatherPrep.exe"
 Name: "{group}\Uninstall Feather Prep"; Filename: "{uninstallexe}"
 
 [Run]
+Filename: "{app}\FeatherPrep\FeatherPrep.exe"; Parameters: "--remove-update-task"; Flags: runhidden waituntilterminated
 Filename: "{app}\FeatherPrep\FeatherPrep.exe"; Description: "Launch Feather Prep"; Flags: nowait postinstall skipifsilent
 Filename: "{app}\FeatherPrep\FeatherPrep.exe"; Flags: nowait skipifnotsilent
-Filename: "{app}\FeatherPrep\FeatherPrep.exe"; Parameters: "--register-update-task"; Flags: nowait runhidden
 
 [UninstallRun]
 Filename: "{sys}\schtasks.exe"; Parameters: "/Delete /TN ""FeatherOS Auto Update"" /F"; Flags: runhidden; RunOnceId: "FeatherOSUpdateTask"
