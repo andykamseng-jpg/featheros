@@ -55,8 +55,9 @@ jobs:
           }
           if ($tag -notmatch '^v(\d+)\.(\d+)\.(\d+)$') { throw "Release tag must be vMAJOR.MINOR.PATCH." }
           $version = "$($Matches[1]).$($Matches[2]).$($Matches[3])"
-          gh release view $tag *> $null
-          if ($LASTEXITCODE -eq 0) { throw "Release $tag already exists." }
+          $existingTags = gh release list --limit 100 --json tagName --jq '.[].tagName'
+          if ($LASTEXITCODE -ne 0) { throw "Could not verify that release tag $tag is unused." }
+          if ($existingTags -contains $tag) { throw "Release $tag already exists." }
           "tag=$tag" >> $env:GITHUB_OUTPUT
           "RELEASE_TAG=$tag" >> $env:GITHUB_ENV
       - name: Run test suite
