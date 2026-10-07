@@ -9,7 +9,7 @@ from agent import updater
 
 
 class UpdaterTests(unittest.TestCase):
-    def release(self, digest=None, url=None, size=7, tag="v0.6.11"):
+    def release(self, digest=None, url=None, size=7, tag="v0.6.12"):
         return {"tag_name": tag, "assets": [{
             "name": "FeatherOS-Setup.exe", "size": size,
             "browser_download_url": url or updater.ASSET_URL_PREFIX + tag + "/FeatherOS-Setup.exe",
@@ -34,7 +34,7 @@ class UpdaterTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     updater.stage_release(directory, release)
             self.assertFalse(path.exists())
-            self.assertFalse(Path(directory, "updates", "FeatherOS-Setup-v0.6.11.partial").exists())
+            self.assertFalse(Path(directory, "updates", "FeatherOS-Setup-v0.6.12.partial").exists())
 
 
 if __name__ == "__main__":
