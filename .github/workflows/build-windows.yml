@@ -140,8 +140,7 @@ jobs:
           if (Test-Path $certificatePath) { Remove-Item $certificatePath -Force }
           # Keep this byte-identical alias for Feather Prep versions already installed.
           Copy-Item $versionedInstaller dist/FeatherOS-Setup.exe -Force
-          if ((Get-FileHash $versionedInstaller -Algorithm SHA256).Hash -ne
-              (Get-FileHash dist/FeatherOS-Setup.exe -Algorithm SHA256).Hash) {
+          if ((Get-FileHash $versionedInstaller -Algorithm SHA256).Hash -ne (Get-FileHash dist/FeatherOS-Setup.exe -Algorithm SHA256).Hash) {
             throw "Versioned and updater installers differ."
           }
           Compress-Archive -Path $versionedInstaller,dist/README-Windows.txt `
