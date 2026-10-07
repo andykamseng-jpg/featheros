@@ -48,27 +48,25 @@ def _update_once():
         logging.exception("Scheduled automatic update check failed")
 
 
-def _register_update_task():
+def _remove_update_task():
+    """Remove the legacy 30-minute task installed by earlier Feather Prep builds."""
     if os.name != "nt":
         return
     home = app_data_dir()
     home.mkdir(parents=True, exist_ok=True)
     logging.basicConfig(filename=home / "feather.log", level=logging.INFO,
                         format="%(asctime)s %(levelname)s %(message)s")
-    executable = str(Path(sys.executable).resolve())
-    task_command = f'"{executable}" --update-once'
     try:
         result = subprocess.run(
-            ["schtasks.exe", "/Create", "/SC", "MINUTE", "/MO", "30",
-             "/TN", "FeatherOS Auto Update", "/TR", task_command,
-             "/F", "/RL", "LIMITED", "/IT"],
+            ["schtasks.exe", "/Delete", "/TN", "FeatherOS Auto Update", "/F"],
             capture_output=True, text=True, timeout=30, check=False,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )
         if result.returncode:
-            logging.warning("Could not register per-user update task: %s", result.stderr.strip())
+            logging.info("Legacy update task was not present or could not be removed: %s",
+                         (result.stderr or result.stdout).strip())
     except (OSError, subprocess.SubprocessError):
-        logging.exception("Could not register per-user update task")
+        logging.exception("Could not remove legacy per-user update task")
 
 
 def bundled_source_dir():
@@ -158,23 +156,20 @@ class FeatherPrep:
             threading.Thread(target=self.check_updates, name="feather-auto-update", daemon=True).start()
 
     def check_updates(self):
-        """Check on startup and every 30 minutes; verify every downloaded release."""
-        while not self.stop_event.is_set():
-            try:
-                release = updater.fetch_latest()
-                if release:
-                    self.show_update_status("Downloading verified " + release["tag"] + " update…")
-                    installer = updater.stage_release(self.home, release)
-                    self.root.after(0, lambda: self.install_update(installer, release["tag"]))
-                    return
+        """Check once at startup and install only a verified official release."""
+        if self.stop_event.is_set():
+            return
+        try:
+            release = updater.fetch_latest()
+            if not release:
                 self.show_update_status("Feather Prep is up to date.")
-                delay = 30 * 60
-            except Exception:
-                logging.exception("Automatic update check failed")
-                self.show_update_status("Update check unavailable; retrying later.")
-                delay = 10 * 60
-            if self.stop_event.wait(delay):
                 return
+            self.show_update_status("Downloading verified " + release["tag"] + " update…")
+            installer = updater.stage_release(self.home, release)
+            self.root.after(0, lambda: self.install_update(installer, release["tag"]))
+        except Exception:
+            logging.exception("Automatic update check failed")
+            self.show_update_status("Update check failed; try again next time Feather Prep starts.")
 
     def show_update_status(self, value):
         try:
@@ -320,8 +315,8 @@ def main():
     if "--update-once" in sys.argv[1:]:
         _update_once()
         return
-    if "--register-update-task" in sys.argv[1:]:
-        _register_update_task()
+    if "--remove-update-task" in sys.argv[1:]:
+        _remove_update_task()
         return
     if "--mcp" in sys.argv[1:]:
         # MCP clients use stdio, while the same app-data paths preserve reports

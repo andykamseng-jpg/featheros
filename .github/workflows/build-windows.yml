@@ -1,6 +1,8 @@
 name: Build Feather for Windows
 
 on:
+  pull_request:
+    branches: [main]
   push:
     branches: [main]
   workflow_dispatch:
@@ -109,7 +111,7 @@ jobs:
 
           Unsigned development installers and apps may be blocked by Smart App Control. Do not disable Windows protection to run this build. A release for protected Windows devices needs a valid RSA code-signing certificate from a trusted provider.
 
-          Source editing takes effect in the stored source tree and may need a rebuilt app to run. Hardware is scanned automatically; the bounded report is sent to the configured Vercel registry by default. Feather Prep 0.6.6 and later register a per-user Windows task that checks for signed-off official releases every 30 minutes while the user is signed in. Downloads are verified against the GitHub-published SHA-256 digest before Setup runs. This 0.6.8 recovery release keeps Python runtime files beside the app instead of extracting them to Temp. If an earlier Feather Prep shows a python312.dll startup error, run this installer once to repair it. The sharing checkbox can stop and remove a device report. AI input will be designed for the later installed OS stage.
+          Source editing takes effect in the stored source tree and may need a rebuilt app to run. Hardware is scanned automatically; the bounded report is sent to the configured Vercel registry by default. Feather Prep checks official GitHub releases once when it starts. Version 0.6.10 removes the legacy 30-minute Windows task during installation to prevent duplicate update attempts. Downloads are verified against the GitHub-published SHA-256 digest before Setup runs. This 0.6.8 recovery release keeps Python runtime files beside the app instead of extracting them to Temp. If an earlier Feather Prep shows a python312.dll startup error, run this installer once to repair it. The sharing checkbox can stop and remove a device report. AI input will be designed for the later installed OS stage.
           "@ | Set-Content -Encoding UTF8 dist/README-Windows.txt
           $compiler = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
           if (-not (Test-Path $compiler)) { throw "Inno Setup compiler was not found." }
