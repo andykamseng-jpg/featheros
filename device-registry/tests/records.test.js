@@ -38,3 +38,20 @@ test('device tokens are one-way hashed and comparisons require equal lengths', (
   assert.equal(safeEqual('abc', 'abc'), true);
   assert.equal(safeEqual('abc', 'ab'), false);
 });
+
+test('resource facts survive validation while invented fit claims and identifiers are dropped', () => {
+  const report = validateReport({ ...good, hardware: { resources: {
+    processors: [{ name: 'CPU', cores: 8, logicalProcessors: 16, serial: 'private' }],
+    memoryTotalBytes: 17179869184, memoryAvailableBytes: -1,
+    graphics: [{ name: 'GPU', reportedAdapterBytes: Number.MAX_SAFE_INTEGER + 1 }],
+    storage: Array.from({ length: 100 }, () => ({ model: 'SSD', sizeBytes: 512000000000, serial: 'private' })),
+    modelFit: 'guaranteed',
+  } } });
+  assert.equal(report.hardware.resources.processors[0].cores, 8);
+  assert.equal(report.hardware.resources.memoryTotalBytes, 17179869184);
+  assert.equal(report.hardware.resources.memoryAvailableBytes, null);
+  assert.equal(report.hardware.resources.graphics[0].reportedAdapterBytes, null);
+  assert.equal(report.hardware.resources.storage.length, 16);
+  assert.equal(report.hardware.resources.modelFit, 'benchmark_required');
+  assert.equal(JSON.stringify(report).includes('private'), false);
+});

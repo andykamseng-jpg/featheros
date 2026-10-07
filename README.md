@@ -59,3 +59,7 @@ Microphone support depends on a current browser implementing SpeechRecognition a
 Run `python3 -m unittest discover -s tests -v`.
 
 Tests cover the agent, MCP messages, local HTTP access, revisions, task persistence, a simulated cloud tool loop and installation-sequence invariants. Windows scripts, a real provider, physical audio, the live build and an OS replacement require separate testing.
+
+### Hardware resource scan
+
+Feather Prep scans hardware automatically after launch. `system_info.resource_profile` and the registry hardware details include bounded CPU names/core counts, total and available RAM, graphics adapter memory estimates, and storage models/capacities. Missing measurements remain null. Windows graphics adapter memory is not a reliable usable VRAM budget, especially for integrated graphics; model fit always requires a local benchmark. No model weights are bundled or downloaded by this scan. The installer runs inside Windows; a replacement FeatherOS boot image is not available.
