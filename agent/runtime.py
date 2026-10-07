@@ -1,4 +1,4 @@
-"""Select a local model by default, with an explicit online override."""
+"""Select the online model by default, with an explicit local override."""
 import os
 
 from . import cloud, local_ai
@@ -10,10 +10,10 @@ def selected_backend():
         return "online"
     if preference == "local" and local_ai.configured():
         return "local"
-    if local_ai.configured():
-        return "local"
     if cloud.configured():
         return "online"
+    if local_ai.configured():
+        return "local"
     return "none"
 
 
@@ -21,12 +21,12 @@ def configured():
     return selected_backend() != "none"
 
 
-def run_task(agent, text):
+def run_task(agent, text, conversation_id=None):
     backend = selected_backend()
     if backend == "local":
-        return local_ai.run_task(agent, text)
+        return local_ai.run_task(agent, text, conversation_id)
     if backend == "online":
-        return cloud.run_task(agent, text)
+        return cloud.run_task(agent, text, conversation_id)
     raise RuntimeError("No local or online AI provider is configured")
 
 
@@ -37,7 +37,7 @@ def worker(agent, stop):
             stop.wait(1)
             continue
         try:
-            reply = run_task(agent, task["text"])
+            reply = run_task(agent, task["text"], task.get("conversation_id"))
         except Exception as exc:
             reply = "AI request failed (" + type(exc).__name__ + "). Check the selected provider; no automatic retry was made."
         agent.call("task_reply", {"id": task["id"], "text": reply})

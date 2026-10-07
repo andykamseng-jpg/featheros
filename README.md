@@ -7,8 +7,8 @@ MCP is the tool-connection protocol, not the operating system itself. Feather's 
 ## What works in this starter
 
 - Windows launcher with an automatic hardware scan, bounded report to the private Vercel registry, and a simple local scan-details page.
-- Optional cloud worker for a configured HTTPS chat-completions-compatible model with function calling.
-- A local-first model adapter for an OpenAI-compatible server on the same computer, with a cautious RAM-based resource hint and a simple local Feather AI chat page.
+- Online AI worker for a configured HTTPS chat-completions-compatible model with function calling; when online and local providers are both configured, online is selected by default.
+- Optional local adapter for an OpenAI-compatible server on the same computer, with a cautious RAM/CPU/graphics resource profile and Feather AI chat page.
 - MCP stdio tools for computer information, file edits, current-user commands, revisions and dashboard tasks.
 - Automatic read-only hardware scan as soon as the local Feather agent starts on supported Windows and Linux hosts; the AI can read the results through MCP.
 - Scan-details page that displays the read-only scan results and lets the user download local JSON for review.
@@ -25,9 +25,9 @@ Linux: run `sh START-AGENT.sh`.
 
 The Windows launcher does not open a browser automatically. Select **Open Feather AI** to open the local chat and hardware report. The desktop window shows whether the registry accepted the report.
 
-Open **Feather AI** from the desktop app to submit a task. Connect a local model server in the app to keep requests on this PC, or connect an HTTPS online provider. Local AI is selected by default when configured; online AI can be selected from the app. This build connects to an existing local OpenAI-compatible endpoint and does not download or bundle model files. The endpoint must be loopback (`localhost`, `127.0.0.1`, or `::1`).
+Open **Feather AI** from the desktop app to chat and submit tasks. Use **Set up online AI** for an HTTPS provider or **Set up local AI** for an OpenAI-compatible endpoint on this PC. Online AI is preferred when both are configured; local can be explicitly selected, and is used automatically when it is the only configured provider. Local setup saves only the endpoint and model name. Online provider secrets stay in memory for that run and are not saved. The local endpoint must be loopback (`localhost`, `127.0.0.1`, or `::1`).
 
-The chat page displays recent tasks and replies, but this prototype starts a fresh model context for each submission; earlier messages are not passed back into the next request.
+Feather AI keeps a bounded history of up to eight completed user/assistant turns per conversation on this PC and sends it with later turns in that conversation. Start a new conversation to clear its active history. Do not enter secrets or sensitive information you do not want stored in the local task history. This does not include browser automation, bundled or downloaded model weights, or a replacement for Windows; Feather Prep still runs inside Windows.
 
 To let the AI execute commands as your user account, start with `python3 -m agent.server --enable-commands`.
 
@@ -35,7 +35,7 @@ Commands run with that account's authority; file-tool roots do not restrict comm
 
 Once Feather is running on a computer, its AI can call `system_info` to collect OS, processor, memory, firmware, disk, graphics, network and installed-driver details locally. This inventory does not change the computer. The current Windows probe requires a supported Python runtime and PowerShell; Feather Prep still needs a trusted, tested launcher before it can start on every Windows generation.
 
-The `system_info` result also includes an AI resource profile based on RAM, logical processor count and graphics names. It is only a planning hint; it does not guarantee a model will fit or run well. Benchmark local models on each target computer before automatically choosing or downloading a model. See `design/LOCAL-AI-CORE.md` for this stage's limits.
+The `system_info` result also includes a cautious AI resource profile based on RAM, logical processor count and graphics names. It is only a planning hint; it does not guarantee a model will fit or run well. Benchmark local models on each target computer before choosing a model. No model weights are bundled or downloaded. See `design/LOCAL-AI-CORE.md` for this stage's limits.
 
 See design/MCP-CONNECTION.md for MCP configuration and the optional cloud worker. No account, hosted model, provider credential, subscription or perpetual cloud session is included. Connection checks and real provider calls need your configured service. An old laptop can use cloud inference without a local model/GPU, but its installed Feather runtime still needs drivers for the actual hardware.
 

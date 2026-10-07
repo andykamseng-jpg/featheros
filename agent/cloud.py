@@ -14,7 +14,7 @@ def configured():
     return all(os.environ.get(k) for k in ("FEATHER_AI_URL", "FEATHER_AI_KEY", "FEATHER_AI_MODEL"))
 
 
-def run_task(agent, text):
+def run_task(agent, text, conversation_id=None):
     endpoint = os.environ["FEATHER_AI_URL"]
     if urlparse(endpoint).scheme != "https":
         raise ValueError("Cloud AI endpoint must use HTTPS")
@@ -24,8 +24,10 @@ def run_task(agent, text):
          "Use root=source for Feather code and root=workspace for user projects. Save a revision before edits. "
          "Run relevant verification when commands are enabled. Do not claim an OS install or test happened "
          "without evidence. Source edits may require restart. Report what changed and any remaining limitations."},
-        {"role": "user", "content": text},
     ]
+    if hasattr(agent, "conversation_context"):
+        messages.extend(agent.conversation_context(conversation_id))
+    messages.append({"role": "user", "content": text})
     for _ in range(8):
         payload = {"model": os.environ["FEATHER_AI_MODEL"], "messages": messages,
                    "tools": [{"type": "function", "function": {
@@ -70,3 +72,4 @@ def worker(agent, stop):
             # Provider error text can contain confidential request information.
             reply = "Cloud request failed (" + type(e).__name__ + "). Check your provider configuration; no automatic retry was made."
         agent.call("task_reply", {"id": task["id"], "text": reply})
+

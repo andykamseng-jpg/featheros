@@ -353,15 +353,40 @@ class Agent:
     def save_tasks(self):
         self.atomic_text(self.task_file, json.dumps(self.tasks, ensure_ascii=False))
 
-    def submit(self, text):
+    def submit(self, text, conversation_id=None):
         if not isinstance(text, str) or not text.strip() or len(text) > 10000:
             raise ValueError("Enter a task of up to 10000 characters")
+        if conversation_id is None:
+            conversation_id = str(uuid.uuid4())
+        else:
+            try:
+                conversation_id = str(uuid.UUID(str(conversation_id)))
+            except (ValueError, TypeError, AttributeError):
+                raise ValueError("Invalid conversation ID")
         with self.lock:
             if sum(t["state"] in {"queued", "working"} for t in self.tasks) >= 20:
                 raise ValueError("Task queue is full")
             self.tasks = self.tasks[-99:]
-            t = {"id": uuid.uuid4().hex, "text": text, "state": "queued", "time": time.time()}
+            t = {"id": uuid.uuid4().hex, "conversation_id": conversation_id,
+                 "text": text, "state": "queued", "time": time.time()}
             self.tasks.append(t)
             self.save_tasks()
             return dict(t)
+
+    def conversation_context(self, conversation_id, limit=8):
+        """Return bounded completed user/assistant turns from one conversation."""
+        if not conversation_id:
+            return []
+        with self.lock:
+            turns = []
+            for task in self.tasks:
+                if task.get("conversation_id") != conversation_id or task.get("state") != "done":
+                    continue
+                user, assistant = task.get("text"), task.get("reply")
+                if isinstance(user, str) and isinstance(assistant, str):
+                    turns.extend((
+                        {"role": "user", "content": user[:4000]},
+                        {"role": "assistant", "content": assistant[:4000]},
+                    ))
+            return turns[-max(1, min(int(limit), 8)) * 2:]
 

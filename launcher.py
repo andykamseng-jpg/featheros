@@ -112,8 +112,7 @@ class FeatherPrep:
             settings.get("local_ai_url"), settings.get("local_ai_model"))
         if saved_local:
             os.environ.update(FEATHER_LOCAL_AI_URL=saved_local["endpoint"],
-                              FEATHER_LOCAL_AI_MODEL=saved_local["model"],
-                              FEATHER_AI_MODE="local")
+                              FEATHER_LOCAL_AI_MODEL=saved_local["model"])
 
         logging.basicConfig(filename=self.home / "feather.log", level=logging.INFO,
                             format="%(asctime)s %(levelname)s %(message)s")
@@ -156,8 +155,8 @@ class FeatherPrep:
         buttons = ttk.Frame(frame)
         buttons.pack(fill="x", side="bottom")
         ttk.Button(buttons, text="Open Feather AI", command=self.open_dashboard).pack(side="left", padx=(0, 6))
-        ttk.Button(buttons, text="Local AI", command=self.connect_local_ai).pack(side="left", padx=(0, 6))
-        ttk.Button(buttons, text="Online AI", command=self.connect_cloud).pack(side="left")
+        ttk.Button(buttons, text="Set up local AI", command=self.connect_local_ai).pack(side="left", padx=(0, 6))
+        ttk.Button(buttons, text="Set up online AI", command=self.connect_cloud).pack(side="left")
         ttk.Button(buttons, text="Exit", command=self.close).pack(side="right")
         self.root.protocol("WM_DELETE_WINDOW", self.close)
         self.root.after(250, self.update_status)
@@ -295,6 +294,8 @@ class FeatherPrep:
                 settings = json.loads(self.settings_file.read_text(encoding="utf-8"))
             except (OSError, ValueError):
                 settings = {}
+            if not isinstance(settings, dict):
+                settings = {}
             settings.update(local_ai_url=config["endpoint"], local_ai_model=config["model"])
             temp = self.settings_file.with_suffix(".tmp")
             temp.write_text(json.dumps(settings), encoding="utf-8")
@@ -314,7 +315,7 @@ class FeatherPrep:
 
     def connect_cloud(self):
         dialog = tk.Toplevel(self.root)
-        dialog.title("Connect cloud AI")
+        dialog.title("Set up online AI")
         dialog.resizable(False, False)
         dialog.transient(self.root)
         dialog.grab_set()

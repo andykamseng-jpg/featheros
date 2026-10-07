@@ -13,6 +13,7 @@
   <h1>🪶 Feather AI</h1>
   <p id="ai-status">Checking Feather’s AI connection…</p>
   <section class="card">
+    <button id="new-conversation" type="button">New conversation</button>
     <div id="messages" class="messages" aria-live="polite"></div>
     <form id="task-form">
       <label for="task">Ask Feather</label>
@@ -33,6 +34,10 @@
     const input=document.getElementById('task');
     const send=document.getElementById('send');
     const status=document.getElementById('ai-status');
+    function newId(){return (globalThis.crypto&&crypto.randomUUID)?crypto.randomUUID():'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0;return (c==='x'?r:(r&3|8)).toString(16)})}
+    let conversationId=sessionStorage.getItem('feather-conversation-id');
+    if(!conversationId){conversationId=newId();sessionStorage.setItem('feather-conversation-id',conversationId)}
+    document.getElementById('new-conversation').onclick=()=>{conversationId=newId();sessionStorage.setItem('feather-conversation-id',conversationId);load()};
     async function load(){
       try{
         const response=await fetch('/api/state',{headers:{'X-Feather-Token':token}});
@@ -40,12 +45,12 @@
         const state=await response.json();
         report=state.system.hardware||{};
         const backend=state.ai_backend||'none';
-        status.textContent=backend==='local'?'Local AI selected. Tasks stay on this computer.':backend==='online'?'Online AI selected. Tasks are sent to your configured provider.':'No AI connected. Connect Local AI or Online AI in Feather Prep.';
+        status.textContent=backend==='local'?'Local AI selected. Prompts stay on this computer.':backend==='online'?'Online AI selected. Prompts are sent to your configured provider.':'No AI connected. Use Set up local AI or Set up online AI in Feather Prep.';
         input.disabled=backend==='none';
         send.disabled=backend==='none';
         const messages=document.getElementById('messages');
         messages.replaceChildren();
-        for(const task of (state.tasks||[]).slice(-20)){
+        for(const task of (state.tasks||[]).filter(item=>item.conversation_id===conversationId).slice(-20)){
           const user=document.createElement('div');
           user.className='message user';
           user.textContent=task.text||'';
@@ -71,7 +76,7 @@
       send.disabled=true;
       document.getElementById('chat-error').textContent='';
       try{
-        const response=await fetch('/api/task',{method:'POST',headers:{'X-Feather-Token':token,'Content-Type':'application/json'},body:JSON.stringify({text})});
+        const response=await fetch('/api/task',{method:'POST',headers:{'X-Feather-Token':token,'Content-Type':'application/json'},body:JSON.stringify({text,conversation_id:conversationId})});
         const result=await response.json();
         if(!response.ok)throw Error(result.error||'Feather could not queue this task.');
         input.value='';

@@ -110,7 +110,7 @@ def make_http(agent, port=8765):
                     raise ValueError("Invalid request size")
                 body = json.loads(self.rfile.read(length))
                 if self.path == "/api/task":
-                    result = agent.submit(body.get("text"))
+                    result = agent.submit(body.get("text"), body.get("conversation_id"))
                 elif self.path == "/api/snapshot":
                     result = agent.call("revision_save", {"root": "source", "label": "Desktop checkpoint"})
                 else:

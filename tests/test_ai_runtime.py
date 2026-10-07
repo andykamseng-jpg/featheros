@@ -60,10 +60,38 @@ class LocalAIConfigurationTests(unittest.TestCase):
         self.assertIsNone(local_ai.validate_configuration(
             "http://user@localhost:1234/v1/chat/completions", "feather-small"))
 
-    def test_local_precedes_online_when_both_are_configured(self):
-        with patch.object(local_ai, "configured", return_value=True), \
+    def test_online_precedes_local_by_default_and_local_can_be_selected(self):
+        with patch.dict(os.environ, {}, clear=True), \
+             patch.object(local_ai, "configured", return_value=True), \
+             patch.object(runtime.cloud, "configured", return_value=True):
+            self.assertEqual(runtime.selected_backend(), "online")
+        with patch.dict(os.environ, {"FEATHER_AI_MODE": "local"}, clear=True), \
+             patch.object(local_ai, "configured", return_value=True), \
              patch.object(runtime.cloud, "configured", return_value=True):
             self.assertEqual(runtime.selected_backend(), "local")
+        with patch.dict(os.environ, {}, clear=True), \
+             patch.object(local_ai, "configured", return_value=False), \
+             patch.object(runtime.cloud, "configured", return_value=True):
+            self.assertEqual(runtime.selected_backend(), "online")
+
+    def test_agent_keeps_bounded_context_separate_per_conversation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            agent = Agent(os.path.join(directory, "data"), os.path.join(directory, "source"))
+            conversation = "12345678-1234-4234-8234-123456789abc"
+            first = agent.submit("first question", conversation)
+            self.assertEqual(first["conversation_id"], conversation)
+            agent.call("task_next", {})
+            agent.call("task_reply", {"id": first["id"], "text": "first answer"})
+            second = agent.submit("different conversation", "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")
+            agent.call("task_next", {})
+            agent.call("task_reply", {"id": second["id"], "text": "separate answer"})
+            self.assertEqual(agent.conversation_context(first["conversation_id"]), [
+                {"role": "user", "content": "first question"},
+                {"role": "assistant", "content": "first answer"},
+            ])
+            self.assertEqual(agent.conversation_context("missing"), [])
+            with self.assertRaises(ValueError):
+                agent.submit("invalid ID", "not-a-uuid")
         with patch.object(local_ai, "configured", return_value=False), \
              patch.object(runtime.cloud, "configured", return_value=True):
             self.assertEqual(runtime.selected_backend(), "online")
@@ -86,6 +114,11 @@ class _Response:
 class _Agent:
     def __init__(self):
         self.calls = []
+        self.context = []
+
+    def conversation_context(self, conversation_id):
+        self.context_id = conversation_id
+        return list(self.context)
 
     def call(self, name, arguments):
         self.calls.append((name, arguments))
@@ -104,6 +137,21 @@ class LocalAIRunTests(unittest.TestCase):
         request = open_url.call_args.args[0]
         self.assertEqual(request.full_url, "http://localhost:1234/v1/chat/completions")
         self.assertIsNone(request.get_header("Authorization"))
+
+    def test_local_request_receives_bounded_history_for_current_conversation(self):
+        payload = {"choices": [{"message": {"role": "assistant", "content": "I remember."}}]}
+        agent = _Agent()
+        agent.context = [{"role": "user", "content": "My name is Alex."},
+                         {"role": "assistant", "content": "Hello, Alex."}]
+        with patch.dict(os.environ, {
+            "FEATHER_LOCAL_AI_URL": "http://127.0.0.1:1234/v1/chat/completions",
+            "FEATHER_LOCAL_AI_MODEL": "feather-small",
+        }, clear=True), patch("agent.local_ai.urllib.request.urlopen", return_value=_Response(payload)) as open_url:
+            local_ai.run_task(agent, "What is my name?", "12345678-1234-4234-8234-123456789abc")
+        sent = json.loads(open_url.call_args.args[0].data)
+        self.assertEqual(sent["messages"][1:3], agent.context)
+        self.assertEqual(sent["messages"][3], {"role": "user", "content": "What is my name?"})
+        self.assertEqual(agent.context_id, "12345678-1234-4234-8234-123456789abc")
 
     def test_local_model_can_use_read_only_hardware_tool(self):
         payload = {"choices": [{"message": {

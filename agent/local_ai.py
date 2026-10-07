@@ -37,7 +37,7 @@ def configured():
     return configuration() is not None
 
 
-def run_task(agent, text):
+def run_task(agent, text, conversation_id=None):
     """Run a queued task through the configured local model and Feather tools."""
     config = configuration()
     if not config:
@@ -48,8 +48,10 @@ def run_task(agent, text):
          "Inspect before changing files. Use root=source for Feather code and root=workspace for user projects. "
          "Save a revision before edits. Run relevant verification when commands are enabled. "
          "Do not claim an OS install or test happened without evidence. Report changes and limitations."},
-        {"role": "user", "content": text},
     ]
+    if hasattr(agent, "conversation_context"):
+        messages.extend(agent.conversation_context(conversation_id))
+    messages.append({"role": "user", "content": text})
 
     for _ in range(8):
         payload = {
