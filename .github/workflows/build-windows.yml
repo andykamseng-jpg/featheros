@@ -129,7 +129,7 @@ jobs:
 
           This per-user installer runs inside Windows and performs a read-only hardware scan. It does not erase Windows or prepare a bootable FeatherOS system.
 
-This recovery release installs the Python runtime beside Feather Prep instead of extracting it into a temporary _MEI folder. If an earlier build fails with a python312.dll startup error, install this release once to restore the automatic updater.
+          This recovery release installs the Python runtime beside Feather Prep instead of extracting it into a temporary _MEI folder. If an earlier build fails with a python312.dll startup error, install this release once to restore the automatic updater.
 
           This development build is unsigned unless a trusted RSA signing certificate was configured in repository Actions secrets. Smart App Control may block the unsigned build. The public source repository contains the Windows build workflow and scan code.
           "@
