@@ -1,13 +1,16 @@
 # FeatherOS Starter — Feather AI Core 0.6
 
-First working layer: the computer's AI centre. FeatherOS is intended to run across a broad range of PCs, with a cloud-connected AI agent controlling Feather through a local system service and exposing machine tools over MCP. Run a small local agent, connect a cloud model or MCP client, inspect the machine, edit Feather's source and user projects, run commands, keep code revisions on disk, and interact by typing or voice.
+First working layer: the computer's AI centre. FeatherOS is intended to run across a broad range of PCs, with a local AI agent controlling supported Feather tools through a local system service and exposing them over MCP. The local model is preferred; an online model is optional. The agent can inspect the machine, edit Feather's source and user projects, search the public web, open pages in the default browser, and keep code revisions on disk.
 
 MCP is the tool-connection protocol, not the operating system itself. Feather's local agent connects the AI to the OS and hardware; the AI can use the tools the agent exposes. The long-term goal is for this AI control layer to work across Feather computers and supported Windows installations, with a matching compatibility adapter for each Windows generation and machine setup.
 
 ## What works in this starter
 
 - Windows launcher with an automatic hardware scan, bounded report to the private Vercel registry, and a simple local scan-details page.
-- Optional cloud worker for a configured HTTPS chat-completions-compatible model with function calling.
+- Local AI assistant using an OpenAI-compatible server on this computer; when both providers are configured, local AI is selected by default.
+- Local AI can search public web results, read bounded public HTTPS pages, and open a selected page in the default browser. It cannot interact with page controls, submit forms, or complete purchases in this milestone.
+- Optional online AI worker for a configured HTTPS chat-completions-compatible model with function calling.
+- A cautious RAM/CPU/graphics resource profile and Feather AI chat page.
 - MCP stdio tools for computer information, file edits, current-user commands, revisions and dashboard tasks.
 - Automatic read-only hardware scan as soon as the local Feather agent starts on supported Windows and Linux hosts; the AI can read the results through MCP.
 - Scan-details page that displays the read-only scan results and lets the user download local JSON for review.
@@ -22,15 +25,19 @@ Windows release: download the versioned installer (for example, `FeatherOS-Setup
 
 Linux: run `sh START-AGENT.sh`.
 
-The Windows launcher does not open a browser automatically. Select **Scan details** for the local report. The desktop window shows whether the registry accepted the report.
+The Windows launcher does not open a browser automatically. Select **Open Feather AI** to open the local chat and hardware report. The desktop window shows whether the registry accepted the report.
 
-Manual AI input has been removed from the preparation interface; a later installed FeatherOS stage can offer a CLI. Existing MCP tools remain available for development.
+Open **Feather AI** from the desktop app to talk with the assistant. Use **Set up local AI** for an OpenAI-compatible endpoint on this PC; Feather selects it by default when both providers are configured. Local setup saves only the endpoint and model name. The endpoint must be loopback (`localhost`, `127.0.0.1`, or `::1`). **Set up online AI** is an optional fallback; its provider secret stays in memory for that run and is not saved. Chat goes to the configured model; web searches send the search terms to DuckDuckGo and selected pages open in the default browser.
+
+Feather AI keeps a bounded history of up to eight completed user/assistant turns per conversation on this PC and sends it with later turns in that conversation. Start a new conversation to clear its active history. Do not enter secrets or sensitive information you do not want stored in the local task history. The first web tools search public pages, read bounded public HTTPS pages, and open a page in the default browser; they do not click page controls, submit forms, or make purchases. No model weights are bundled or downloaded, and Feather Prep still runs inside Windows rather than replacing it.
 
 To let the AI execute commands as your user account, start with `python3 -m agent.server --enable-commands`.
 
 Commands run with that account's authority; file-tool roots do not restrict commands. Start the agent once: an MCP client launching it also serves the dashboard, so stop a standalone instance before launching that client, or select another --port and data directory.
 
 Once Feather is running on a computer, its AI can call `system_info` to collect OS, processor, memory, firmware, disk, graphics, network and installed-driver details locally. This inventory does not change the computer. The current Windows probe requires a supported Python runtime and PowerShell; Feather Prep still needs a trusted, tested launcher before it can start on every Windows generation.
+
+The `system_info` result also includes a cautious AI resource profile based on RAM, logical processor count and graphics names. It is only a planning hint; it does not guarantee a model will fit or run well. Benchmark local models on each target computer before choosing a model. No model weights are bundled or downloaded. See `design/LOCAL-AI-CORE.md` for this stage's limits.
 
 See design/MCP-CONNECTION.md for MCP configuration and the optional cloud worker. No account, hosted model, provider credential, subscription or perpetual cloud session is included. Connection checks and real provider calls need your configured service. An old laptop can use cloud inference without a local model/GPU, but its installed Feather runtime still needs drivers for the actual hardware.
 
@@ -59,3 +66,4 @@ Microphone support depends on a current browser implementing SpeechRecognition a
 Run `python3 -m unittest discover -s tests -v`.
 
 Tests cover the agent, MCP messages, local HTTP access, revisions, task persistence, a simulated cloud tool loop and installation-sequence invariants. Windows scripts, a real provider, physical audio, the live build and an OS replacement require separate testing.
+

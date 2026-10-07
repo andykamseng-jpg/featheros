@@ -11,6 +11,9 @@ import time
 import uuid
 import zipfile
 
+from .capabilities import profile_hardware
+from . import web
+
 
 WINDOWS_INVENTORY_SCRIPT = r"""
 $ErrorActionPreference = 'Stop'
@@ -143,6 +146,9 @@ TOOLS = [
     spec("revision_save", "Save a named code/workspace revision on the hard disk", {"root": STRING, "label": STRING}),
     spec("revision_list", "List saved revisions", {}),
     spec("revision_restore", "Restore saved files; extra newer files are retained; restart modified services separately", {"revision": STRING}, ("revision",)),
+    spec("web_search", "Search the public web and return a small set of result titles, URLs, and snippets", {"query": STRING}, ("query",)),
+    spec("web_fetch", "Read a bounded public HTTPS page as text for research", {"url": STRING}, ("url",)),
+    spec("browser_open", "Open an HTTP or HTTPS page in the user's default browser", {"url": STRING}, ("url",)),
     spec("command_run", "Run a command as the current user when enabled by launch option", {"argv": {"type": "array", "items": STRING, "minItems": 1}, "root": STRING}, ("argv",)),
     spec("task_next", "Claim the next typed/spoken task from the Feather dashboard", {}),
     spec("task_reply", "Complete a claimed task with a response shown and spoken by the dashboard", {"id": STRING, "text": STRING}, ("id", "text")),
@@ -254,7 +260,8 @@ class Agent:
                     "architecture": platform.machine(), "disk_free_bytes": usage.free,
                     "hardware": hardware,
                     "roots": {k: str(v) for k, v in self.roots.items()},
-                    "commands_enabled": self.enable_commands}
+                    "commands_enabled": self.enable_commands,
+                    "ai_capabilities": profile_hardware(hardware, os.cpu_count())}
         if name == "file_list":
             p = self.path(root, a.get("path", "."))
             return [{"name": x.name, "directory": x.is_dir()} for x in sorted(p.iterdir())][:500]
@@ -313,6 +320,12 @@ class Agent:
                     p.parent.mkdir(parents=True, exist_ok=True)
                     p.write_bytes(z.read(n))
             return {"restored": rev, "extra_new_files_retained": True}
+        if name == "web_search":
+            return web.search_web(a["query"])
+        if name == "web_fetch":
+            return web.fetch_page(a["url"])
+        if name == "browser_open":
+            return web.open_in_browser(a["url"])
         if name == "command_run":
             if not self.enable_commands:
                 raise ValueError("Commands require --enable-commands at launch")
@@ -350,14 +363,40 @@ class Agent:
     def save_tasks(self):
         self.atomic_text(self.task_file, json.dumps(self.tasks, ensure_ascii=False))
 
-    def submit(self, text):
+    def submit(self, text, conversation_id=None):
         if not isinstance(text, str) or not text.strip() or len(text) > 10000:
             raise ValueError("Enter a task of up to 10000 characters")
+        if conversation_id is None:
+            conversation_id = str(uuid.uuid4())
+        else:
+            try:
+                conversation_id = str(uuid.UUID(str(conversation_id)))
+            except (ValueError, TypeError, AttributeError):
+                raise ValueError("Invalid conversation ID")
         with self.lock:
             if sum(t["state"] in {"queued", "working"} for t in self.tasks) >= 20:
                 raise ValueError("Task queue is full")
             self.tasks = self.tasks[-99:]
-            t = {"id": uuid.uuid4().hex, "text": text, "state": "queued", "time": time.time()}
+            t = {"id": uuid.uuid4().hex, "conversation_id": conversation_id,
+                 "text": text, "state": "queued", "time": time.time()}
             self.tasks.append(t)
             self.save_tasks()
             return dict(t)
+
+    def conversation_context(self, conversation_id, limit=8):
+        """Return bounded completed user/assistant turns from one conversation."""
+        if not conversation_id:
+            return []
+        with self.lock:
+            turns = []
+            for task in self.tasks:
+                if task.get("conversation_id") != conversation_id or task.get("state") != "done":
+                    continue
+                user, assistant = task.get("text"), task.get("reply")
+                if isinstance(user, str) and isinstance(assistant, str):
+                    turns.extend((
+                        {"role": "user", "content": user[:4000]},
+                        {"role": "assistant", "content": assistant[:4000]},
+                    ))
+            return turns[-max(1, min(int(limit), 8)) * 2:]
+
