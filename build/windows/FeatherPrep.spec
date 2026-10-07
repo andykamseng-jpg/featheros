@@ -1,9 +1,10 @@
-"""PyInstaller one-file builds for the FeatherPrep GUI and FeatherMCP stdio app."""
+"""PyInstaller one-folder builds for the FeatherPrep GUI and FeatherMCP stdio app."""
 from pathlib import Path
 import os
 
 ROOT = Path(SPECPATH).resolve().parents[1]
 is_mcp = os.environ.get("FEATHER_MCP_BUILD") == "1"
+app_name = "FeatherMCP" if is_mcp else "FeatherPrep"
 datas = [(str(ROOT / "agent" / "desktop.html"), "agent")]
 for folder in ("agent", "windows", "design"):
     for source in (ROOT / folder).rglob("*"):
@@ -30,10 +31,9 @@ pyz = PYZ(a.pure)
 exe = EXE(
     pyz,
     a.scripts,
-    a.binaries,
-    a.datas,
     [],
-    name="FeatherMCP" if is_mcp else "FeatherPrep",
+    exclude_binaries=True,
+    name=app_name,
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -44,4 +44,13 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+)
+coll = COLLECT(
+    exe,
+    a.binaries,
+    a.datas,
+    strip=False,
+    upx=False,
+    upx_exclude=[],
+    name=app_name,
 )

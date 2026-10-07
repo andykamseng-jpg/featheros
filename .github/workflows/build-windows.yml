@@ -1,13 +1,23 @@
 name: Build Feather for Windows
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       release_tag:
-        description: "Public release tag (for example v0.6.6)"
-        required: true
-        default: "v0.6.6"
+        description: "Optional release tag; leave blank to increment the latest release"
+        required: false
         type: string
+      publish_release:
+        description: "Publish the release (automatic main pushes always publish)"
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: featheros-release
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -18,23 +28,52 @@ jobs:
     env:
       FEATHER_SIGNING_CERT_BASE64: ${{ secrets.FEATHER_SIGNING_CERT_BASE64 }}
       FEATHER_SIGNING_CERT_PASSWORD: ${{ secrets.FEATHER_SIGNING_CERT_PASSWORD }}
-      RELEASE_TAG: ${{ inputs.release_tag }}
     outputs:
       suffix: ${{ steps.bundle.outputs.suffix }}
+      release_tag: ${{ steps.release.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Prepare release version
+        id: release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED_TAG: ${{ inputs.release_tag }}
+        run: |
+          $tag = $env:REQUESTED_TAG
+          if (-not $tag) {
+            $latestTag = gh api repos/andykamseng-jpg/featheros/releases/latest --jq .tag_name
+            if ($LASTEXITCODE -ne 0 -or -not $latestTag) { throw "Could not read the latest FeatherOS release." }
+            if ($latestTag -notmatch '^v?(\d+)\.(\d+)\.(\d+)$') { throw "Latest release tag is not semantic versioning: $latestTag" }
+            $major = [int]$Matches[1]
+            $minor = [int]$Matches[2]
+            $patch = [int]$Matches[3] + 1
+            $tag = "v$major.$minor.$patch"
+          }
+          if ($tag -notmatch '^v(\d+)\.(\d+)\.(\d+)$') { throw "Release tag must be vMAJOR.MINOR.PATCH." }
+          $version = "$($Matches[1]).$($Matches[2]).$($Matches[3])"
+          $existingTags = gh release list --limit 100 --json tagName --jq '.[].tagName'
+          if ($LASTEXITCODE -ne 0) { throw "Could not verify that release tag $tag is unused." }
+          if ($existingTags -contains $tag) { throw "Release $tag already exists." }
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+          "RELEASE_TAG=$tag" >> $env:GITHUB_ENV
       - name: Run test suite
         run: python -m unittest discover -s tests -v
+      - name: Set packaged Feather version
+        shell: pwsh
+        run: |
+          $version = $env:RELEASE_TAG -replace '^v', ''
+          "FEATHER_VERSION=$version" >> $env:GITHUB_ENV
       - name: Build self-contained Windows apps
         shell: pwsh
         run: |
           python -m pip install --disable-pip-version-check pyinstaller==6.16.0
-          pyinstaller --clean --noconfirm build/windows/FeatherPrep.spec
+          pyinstaller --clean --noconfirm --distpath dist/prep build/windows/FeatherPrep.spec
           $env:FEATHER_MCP_BUILD = "1"
-          pyinstaller --clean --noconfirm build/windows/FeatherPrep.spec
+          pyinstaller --clean --noconfirm --distpath dist/mcp build/windows/FeatherPrep.spec
           Remove-Item Env:FEATHER_MCP_BUILD
       - name: Sign with the configured trusted RSA code-signing certificate
         if: ${{ env.FEATHER_SIGNING_CERT_BASE64 != '' && env.FEATHER_SIGNING_CERT_PASSWORD != '' }}
@@ -45,11 +84,11 @@ jobs:
           $signTool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" |
             Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
           if (-not $signTool) { throw "Windows SDK SignTool was not found." }
-          foreach ($app in @("FeatherPrep.exe", "FeatherMCP.exe")) {
+          foreach ($app in @("dist/prep/FeatherPrep/FeatherPrep.exe", "dist/mcp/FeatherMCP/FeatherMCP.exe")) {
             & $signTool sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 `
-              /f $certificatePath /p $env:FEATHER_SIGNING_CERT_PASSWORD "dist/$app"
+              /f $certificatePath /p $env:FEATHER_SIGNING_CERT_PASSWORD $app
             if ($LASTEXITCODE -ne 0) { throw "Signing failed for $app." }
-            & $signTool verify /pa /all "dist/$app"
+            & $signTool verify /pa /all $app
             if ($LASTEXITCODE -ne 0) { throw "Signature verification failed for $app." }
           }
       - name: Build per-user installer
@@ -62,15 +101,15 @@ jobs:
           @"
           # Feather Prep Windows build
 
-          FeatherOS-Setup.exe installs FeatherPrep.exe and FeatherMCP.exe in your per-user Windows programs folder. Python is included, so a separate Python install is not needed.
+          FeatherOS-Setup.exe installs Feather Prep and FeatherMCP with their runtime files in per-user subfolders. Python is included, so a separate Python install is not needed.
 
-          FeatherPrep.exe starts Feather inside your current Windows session and performs a read-only hardware inventory. It does not format, partition, or replace Windows.
+          FeatherPrep starts Feather inside your current Windows session and performs a read-only hardware inventory. It does not format, partition, or replace Windows.
 
           Feather Prep signature verified: $signed
 
           Unsigned development installers and apps may be blocked by Smart App Control. Do not disable Windows protection to run this build. A release for protected Windows devices needs a valid RSA code-signing certificate from a trusted provider.
 
-          Source editing takes effect in the stored source tree and may need a rebuilt app to run. Hardware is scanned automatically; the bounded report is sent to the configured Vercel registry by default. Feather Prep 0.6.6 registers a per-user Windows task that checks for signed-off official releases every 30 minutes while the user is signed in. Downloads are verified against the GitHub-published SHA-256 digest before Setup runs. Existing 0.6.3 and earlier installations need this installer once. The sharing checkbox can stop and remove a device report. AI input will be designed for the later installed OS stage.
+          Source editing takes effect in the stored source tree and may need a rebuilt app to run. Hardware is scanned automatically; the bounded report is sent to the configured Vercel registry by default. Feather Prep 0.6.6 and later register a per-user Windows task that checks for signed-off official releases every 30 minutes while the user is signed in. Downloads are verified against the GitHub-published SHA-256 digest before Setup runs. This 0.6.8 recovery release keeps Python runtime files beside the app instead of extracting them to Temp. If an earlier Feather Prep shows a python312.dll startup error, run this installer once to repair it. The sharing checkbox can stop and remove a device report. AI input will be designed for the later installed OS stage.
           "@ | Set-Content -Encoding UTF8 dist/README-Windows.txt
           $compiler = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
           if (-not (Test-Path $compiler)) { throw "Inno Setup compiler was not found." }
@@ -112,6 +151,7 @@ jobs:
     runs-on: windows-latest
     permissions:
       contents: write
+    if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.publish_release) }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
@@ -122,12 +162,14 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.release_tag }}
+          RELEASE_TAG: ${{ needs.build.outputs.release_tag }}
         run: |
           $notes = @"
           FeatherOS Feather Prep $env:RELEASE_TAG (early test build).
 
           This per-user installer runs inside Windows and performs a read-only hardware scan. It does not erase Windows or prepare a bootable FeatherOS system.
+
+          This recovery release installs the Python runtime beside Feather Prep instead of extracting it into a temporary _MEI folder. If an earlier build fails with a python312.dll startup error, install this release once to restore the automatic updater.
 
           This development build is unsigned unless a trusted RSA signing certificate was configured in repository Actions secrets. Smart App Control may block the unsigned build. The public source repository contains the Windows build workflow and scan code.
           "@
