@@ -21,10 +21,22 @@ class AgentTests(unittest.TestCase):
         self.root = Path(self.temp.name)
         self.source = self.root / 'source'
         self.source.mkdir()
+        stub={'collection_mode':'read_only','status':'test'}
+        self.scan_patches = [
+            patch('agent.core.windows_hardware_inventory', return_value=stub),
+            patch('agent.core.linux_hardware_inventory', return_value=stub),
+        ]
+        for scanner in self.scan_patches:
+            scanner.start()
         self.agent = Agent(self.root / 'data', self.source)
         self.assertTrue(self.agent.hardware_ready.wait(3))
 
     def tearDown(self):
+        for thread in threading.enumerate():
+            if thread.name == 'feather-hardware-scan':
+                thread.join(timeout=3)
+        for scanner in reversed(self.scan_patches):
+            scanner.stop()
         self.temp.cleanup()
 
     def test_ai_can_create_and_edit_files(self):

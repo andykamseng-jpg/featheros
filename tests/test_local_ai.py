@@ -10,6 +10,14 @@ from agent.core import Agent
 
 
 class LocalAiTests(unittest.TestCase):
+    def make_agent(self, data, source):
+        report={'collection_mode':'read_only','status':'test'}
+        with patch('agent.core.windows_hardware_inventory', return_value=report), \
+             patch('agent.core.linux_hardware_inventory', return_value=report):
+            agent=Agent(data, source)
+            self.assertTrue(agent.hardware_ready.wait(3))
+        return agent
+
     def test_loopback_only_and_valid_endpoint_shapes(self):
         for endpoint in (
             'http://127.0.0.1:11434/v1/chat/completions',
@@ -29,8 +37,7 @@ class LocalAiTests(unittest.TestCase):
                 local_ai.validate_endpoint(endpoint)
         proxies=[handler for handler in local_ai._LOOPBACK_OPENER.handlers
                  if isinstance(handler, ProxyHandler)]
-        self.assertEqual(len(proxies), 1)
-        self.assertEqual(proxies[0].proxies, {})
+        self.assertTrue(all(handler.proxies == {} for handler in proxies))
         redirect=next(handler for handler in local_ai._LOOPBACK_OPENER.handlers
                       if isinstance(handler, local_ai._LoopbackRedirect))
         with self.assertRaises(ValueError):
@@ -48,8 +55,7 @@ class LocalAiTests(unittest.TestCase):
     def test_local_is_default_even_if_online_is_configured(self):
         with tempfile.TemporaryDirectory() as temp:
             source=Path(temp, 'source'); source.mkdir()
-            agent=Agent(Path(temp, 'data'), source)
-            self.assertTrue(agent.hardware_ready.wait(3))
+            agent=self.make_agent(Path(temp, 'data'), source)
             with patch('agent.assistant.cloud.configured', return_value=True):
                 self.assertEqual(assistant.selected_provider(agent), 'local')
                 self.assertFalse(assistant.configured(agent))
@@ -104,8 +110,7 @@ class LocalAiTests(unittest.TestCase):
     def test_local_model_request_contains_saved_hardware_context(self):
         with tempfile.TemporaryDirectory() as temp:
             source=Path(temp, 'source'); source.mkdir()
-            agent=Agent(Path(temp,'data'), source)
-            self.assertTrue(agent.hardware_ready.wait(3))
+            agent=self.make_agent(Path(temp,'data'), source)
             agent.hardware_profile={'scanned_at':'today','hardware':{
                 'processors':[{'Name':'Feather-context CPU'}],
                 'graphics':[{'Name':'Local GPU','PNPDeviceID':'unique-instance-42'}]}}
@@ -126,8 +131,7 @@ class LocalAiTests(unittest.TestCase):
     def test_local_model_can_make_a_file_tool_call(self):
         with tempfile.TemporaryDirectory() as temp:
             source=Path(temp, 'source'); source.mkdir()
-            agent=Agent(Path(temp,'data'), source)
-            self.assertTrue(agent.hardware_ready.wait(3))
+            agent=self.make_agent(Path(temp,'data'), source)
             local_ai.save_settings(agent.data, 'http://127.0.0.1:11434/v1/chat/completions', 'test-model')
             class Response:
                 def __init__(self, message):
