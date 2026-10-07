@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import re
+import subprocess
 import urllib.request
 
 from . import __version__
@@ -74,3 +75,25 @@ def stage_release(data_dir, release):
         return target
     finally:
         temp.unlink(missing_ok=True)
+
+
+def launch_installer(data_dir, installer, tag):
+    """Start a newer update once per release, across restarts and processes."""
+    if not _version(tag) or _version(tag) <= _version(__version__):
+        return False
+    folder = Path(data_dir) / "updates"
+    folder.mkdir(parents=True, exist_ok=True)
+    marker = folder / ("install-started-" + tag + ".json")
+    try:
+        with marker.open("x", encoding="utf-8") as output:
+            json.dump({"tag": tag, "fromVersion": __version__}, output)
+    except FileExistsError:
+        return False
+    try:
+        subprocess.Popen([str(installer), "/SILENT", "/NORESTART", "/CLOSEAPPLICATIONS",
+                          "/FORCECLOSEAPPLICATIONS", "/NORESTARTAPPLICATIONS"],
+                         close_fds=True, cwd=str(data_dir))
+    except OSError:
+        marker.unlink(missing_ok=True)
+        raise
+    return True

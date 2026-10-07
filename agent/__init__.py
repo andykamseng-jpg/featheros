@@ -1,4 +1,3 @@
-"""Feather's local agent. Standard library only; Python 3.9 or newer."""
-import os
+"""Feather local agent; release version is baked into packaged builds."""
 
-__version__ = os.environ.get("FEATHER_VERSION", "0.6.11")
+__version__ = "0.6.13"

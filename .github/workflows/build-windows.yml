@@ -62,13 +62,14 @@ jobs:
           if ($existingTags -contains $tag) { throw "Release $tag already exists." }
           "tag=$tag" >> $env:GITHUB_OUTPUT
           "RELEASE_TAG=$tag" >> $env:GITHUB_ENV
-      - name: Run test suite
-        run: python -m unittest discover -s tests -v
       - name: Set packaged Feather version
         shell: pwsh
         run: |
           $version = $env:RELEASE_TAG -replace '^v', ''
-          "FEATHER_VERSION=$version" >> $env:GITHUB_ENV
+          python build/windows/set_version.py $version
+          if ($LASTEXITCODE -ne 0) { throw "Could not bake release version into the app." }
+      - name: Run test suite
+        run: python -m unittest discover -s tests -v
       - name: Build self-contained Windows apps
         shell: pwsh
         run: |
@@ -77,6 +78,16 @@ jobs:
           $env:FEATHER_MCP_BUILD = "1"
           pyinstaller --clean --noconfirm --distpath dist/mcp build/windows/FeatherPrep.spec
           Remove-Item Env:FEATHER_MCP_BUILD
+      - name: Verify compiled version without the build environment
+        shell: pwsh
+        run: |
+          $expected = $env:RELEASE_TAG -replace '^v', ''
+          $env:FEATHER_VERSION = "0.0.0"
+          $actual = & "dist/mcp/FeatherMCP/FeatherMCP.exe" --version
+          Remove-Item Env:FEATHER_VERSION
+          if ($LASTEXITCODE -ne 0 -or $actual -ne $expected) {
+            throw "Compiled version $actual differs from release version $expected."
+          }
       - name: Sign with the configured trusted RSA code-signing certificate
         if: ${{ env.FEATHER_SIGNING_CERT_BASE64 != '' && env.FEATHER_SIGNING_CERT_PASSWORD != '' }}
         shell: pwsh

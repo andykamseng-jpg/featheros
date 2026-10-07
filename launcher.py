@@ -11,6 +11,7 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 import webbrowser
 
+from agent import __version__
 from agent import cloud
 from agent.core import Agent
 from agent import registry
@@ -41,9 +42,7 @@ def _update_once():
         if not release:
             return
         installer = updater.stage_release(home, release)
-        subprocess.Popen([str(installer), "/SILENT", "/NORESTART", "/CLOSEAPPLICATIONS",
-                          "/FORCECLOSEAPPLICATIONS", "/NORESTARTAPPLICATIONS"],
-                         close_fds=True, cwd=str(home))
+        updater.launch_installer(home, installer, release["tag"])
     except Exception:
         logging.exception("Scheduled automatic update check failed")
 
@@ -183,9 +182,10 @@ class FeatherPrep:
         self.update_pending = True
         self.update_status_label.configure(text="Installing verified " + tag + "; Feather will restart.")
         try:
-            subprocess.Popen([str(installer), "/SILENT", "/NORESTART", "/CLOSEAPPLICATIONS",
-                              "/FORCECLOSEAPPLICATIONS", "/NORESTARTAPPLICATIONS"],
-                             close_fds=True)
+            if not updater.launch_installer(self.home, installer, tag):
+                self.update_pending = False
+                self.update_status_label.configure(text="This update was already started; automatic reinstall is blocked.")
+                return
         except OSError:
             logging.exception("Could not start verified Feather installer")
             self.update_pending = False
@@ -312,6 +312,9 @@ class FeatherPrep:
 
 
 def main():
+    if "--version" in sys.argv[1:]:
+        print(__version__)
+        return
     if "--update-once" in sys.argv[1:]:
         _update_once()
         return
