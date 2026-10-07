@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: "Public release tag (for example v0.6.7)"
+        description: "Public release tag (for example v0.6.8)"
         required: true
-        default: "v0.6.7"
+        default: "v0.6.8"
         type: string
 
 permissions:
@@ -32,9 +32,9 @@ jobs:
         shell: pwsh
         run: |
           python -m pip install --disable-pip-version-check pyinstaller==6.16.0
-          pyinstaller --clean --noconfirm build/windows/FeatherPrep.spec
+          pyinstaller --clean --noconfirm --distpath dist/prep build/windows/FeatherPrep.spec
           $env:FEATHER_MCP_BUILD = "1"
-          pyinstaller --clean --noconfirm build/windows/FeatherPrep.spec
+          pyinstaller --clean --noconfirm --distpath dist/mcp build/windows/FeatherPrep.spec
           Remove-Item Env:FEATHER_MCP_BUILD
       - name: Sign with the configured trusted RSA code-signing certificate
         if: ${{ env.FEATHER_SIGNING_CERT_BASE64 != '' && env.FEATHER_SIGNING_CERT_PASSWORD != '' }}
@@ -45,12 +45,15 @@ jobs:
           $signTool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" |
             Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
           if (-not $signTool) { throw "Windows SDK SignTool was not found." }
-          foreach ($app in @("FeatherPrep.exe", "FeatherMCP.exe")) {
-            & $signTool sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 `
-              /f $certificatePath /p $env:FEATHER_SIGNING_CERT_PASSWORD "dist/$app"
-            if ($LASTEXITCODE -ne 0) { throw "Signing failed for $app." }
-            & $signTool verify /pa /all "dist/$app"
-            if ($LASTEXITCODE -ne 0) { throw "Signature verification failed for $app." }
+          foreach ($app in @("dist/prep/FeatherPrep", "dist/mcp/FeatherMCP")) {
+            $binaries = Get-ChildItem $app -Recurse -File | Where-Object { $_.Extension -in @(".exe", ".dll") }
+            foreach ($binary in $binaries) {
+              & $signTool sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 `
+                /f $certificatePath /p $env:FEATHER_SIGNING_CERT_PASSWORD $binary.FullName
+              if ($LASTEXITCODE -ne 0) { throw "Signing failed for $($binary.Name)." }
+              & $signTool verify /pa /all $binary.FullName
+              if ($LASTEXITCODE -ne 0) { throw "Signature verification failed for $($binary.Name)." }
+            }
           }
       - name: Build per-user installer
         id: bundle
@@ -62,15 +65,15 @@ jobs:
           @"
           # Feather Prep Windows build
 
-          FeatherOS-Setup.exe installs FeatherPrep.exe and FeatherMCP.exe in your per-user Windows programs folder. Python is included, so a separate Python install is not needed.
+          FeatherOS-Setup.exe installs Feather Prep and FeatherMCP with their runtime files in per-user subfolders. Python is included, so a separate Python install is not needed.
 
-          FeatherPrep.exe starts Feather inside your current Windows session and performs a read-only hardware inventory. It does not format, partition, or replace Windows.
+          FeatherPrep starts Feather inside your current Windows session and performs a read-only hardware inventory. It does not format, partition, or replace Windows.
 
           Feather Prep signature verified: $signed
 
           Unsigned development installers and apps may be blocked by Smart App Control. Do not disable Windows protection to run this build. A release for protected Windows devices needs a valid RSA code-signing certificate from a trusted provider.
 
-          Source editing takes effect in the stored source tree and may need a rebuilt app to run. Hardware is scanned automatically; the bounded report is sent to the configured Vercel registry by default. Feather Prep 0.6.6 registers a per-user Windows task that checks for signed-off official releases every 30 minutes while the user is signed in. Downloads are verified against the GitHub-published SHA-256 digest before Setup runs. Existing 0.6.3 and earlier installations need this installer once. The sharing checkbox can stop and remove a device report. AI input will be designed for the later installed OS stage.
+          Source editing takes effect in the stored source tree and may need a rebuilt app to run. Hardware is scanned automatically; the bounded report is sent to the configured Vercel registry by default. Feather Prep 0.6.6 and later register a per-user Windows task that checks for signed-off official releases every 30 minutes while the user is signed in. Downloads are verified against the GitHub-published SHA-256 digest before Setup runs. This 0.6.8 recovery release keeps Python runtime files beside the app instead of extracting them to Temp. If an earlier Feather Prep shows a python312.dll startup error, run this installer once to repair it. The sharing checkbox can stop and remove a device report. AI input will be designed for the later installed OS stage.
           "@ | Set-Content -Encoding UTF8 dist/README-Windows.txt
           $compiler = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
           if (-not (Test-Path $compiler)) { throw "Inno Setup compiler was not found." }
@@ -128,6 +131,8 @@ jobs:
           FeatherOS Feather Prep $env:RELEASE_TAG (early test build).
 
           This per-user installer runs inside Windows and performs a read-only hardware scan. It does not erase Windows or prepare a bootable FeatherOS system.
+
+This recovery release installs the Python runtime beside Feather Prep instead of extracting it into a temporary _MEI folder. If an earlier build fails with a python312.dll startup error, install this release once to restore the automatic updater.
 
           This development build is unsigned unless a trusted RSA signing certificate was configured in repository Actions secrets. Smart App Control may block the unsigned build. The public source repository contains the Windows build workflow and scan code.
           "@
