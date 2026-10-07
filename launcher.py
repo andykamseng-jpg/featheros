@@ -11,7 +11,6 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 import webbrowser
 
-from agent import cloud
 from agent import local_ai
 from agent import runtime
 from agent.core import Agent
@@ -113,7 +112,8 @@ class FeatherPrep:
             settings.get("local_ai_url"), settings.get("local_ai_model"))
         if saved_local:
             os.environ.update(FEATHER_LOCAL_AI_URL=saved_local["endpoint"],
-                              FEATHER_LOCAL_AI_MODEL=saved_local["model"])
+                              FEATHER_LOCAL_AI_MODEL=saved_local["model"],
+                              FEATHER_AI_MODE="local")
 
         logging.basicConfig(filename=self.home / "feather.log", level=logging.INFO,
                             format="%(asctime)s %(levelname)s %(message)s")
