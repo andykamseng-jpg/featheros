@@ -2,6 +2,7 @@ import json
 import os
 import tempfile
 import unittest
+from email.message import Message
 from unittest.mock import patch
 
 from agent import local_ai, runtime, web
@@ -195,6 +196,29 @@ class LocalWebToolsTests(unittest.TestCase):
         for url in ("javascript:alert(1)", "file:///etc/passwd", "https://user@example.com"):
             with self.assertRaises(ValueError):
                 web.open_in_browser(url)
+
+    def test_fetch_reads_public_https_page_and_skips_script_text(self):
+        class Response:
+            headers = Message()
+            def __init__(self): self.headers["Content-Type"] = "text/html; charset=utf-8"
+            def __enter__(self): return self
+            def __exit__(self, *args): return None
+            def read(self, limit):
+                return b"<title>Example page</title><script>secret</script><h1>News</h1><p>Public text</p>"
+            def geturl(self): return "https://example.com/news"
+        address = ("93.184.216.34", 443)
+        with patch("agent.web.socket.getaddrinfo", return_value=[(2, 1, 6, "", address)]), \
+             patch("agent.web.urllib.request.build_opener") as build:
+            build.return_value.open.return_value = Response()
+            page = web.fetch_page("https://example.com/news")
+        self.assertEqual(page["title"], "Example page")
+        self.assertIn("Public text", page["text"])
+        self.assertNotIn("secret", page["text"])
+
+    def test_fetch_blocks_loopback_and_local_network_targets(self):
+        for url in ("http://example.com", "https://localhost", "https://192.168.1.1"):
+            with self.assertRaises(ValueError):
+                web.fetch_page(url)
 
     def test_web_actions_are_available_to_the_agent(self):
         with tempfile.TemporaryDirectory() as directory:

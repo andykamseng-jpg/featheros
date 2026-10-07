@@ -147,6 +147,7 @@ TOOLS = [
     spec("revision_list", "List saved revisions", {}),
     spec("revision_restore", "Restore saved files; extra newer files are retained; restart modified services separately", {"revision": STRING}, ("revision",)),
     spec("web_search", "Search the public web and return a small set of result titles, URLs, and snippets", {"query": STRING}, ("query",)),
+    spec("web_fetch", "Read a bounded public HTTPS page as text for research", {"url": STRING}, ("url",)),
     spec("browser_open", "Open an HTTP or HTTPS page in the user's default browser", {"url": STRING}, ("url",)),
     spec("command_run", "Run a command as the current user when enabled by launch option", {"argv": {"type": "array", "items": STRING, "minItems": 1}, "root": STRING}, ("argv",)),
     spec("task_next", "Claim the next typed/spoken task from the Feather dashboard", {}),
@@ -321,6 +322,8 @@ class Agent:
             return {"restored": rev, "extra_new_files_retained": True}
         if name == "web_search":
             return web.search_web(a["query"])
+        if name == "web_fetch":
+            return web.fetch_page(a["url"])
         if name == "browser_open":
             return web.open_in_browser(a["url"])
         if name == "command_run":

@@ -8,7 +8,7 @@ MCP is the tool-connection protocol, not the operating system itself. Feather's 
 
 - Windows launcher with an automatic hardware scan, bounded report to the private Vercel registry, and a simple local scan-details page.
 - Local AI assistant using an OpenAI-compatible server on this computer; when both providers are configured, local AI is selected by default.
-- Local AI can search public web results and open a selected page in the default browser. It cannot interact with page controls, submit forms, or complete purchases in this milestone.
+- Local AI can search public web results, read bounded public HTTPS pages, and open a selected page in the default browser. It cannot interact with page controls, submit forms, or complete purchases in this milestone.
 - Optional online AI worker for a configured HTTPS chat-completions-compatible model with function calling.
 - A cautious RAM/CPU/graphics resource profile and Feather AI chat page.
 - MCP stdio tools for computer information, file edits, current-user commands, revisions and dashboard tasks.
@@ -29,7 +29,7 @@ The Windows launcher does not open a browser automatically. Select **Open Feathe
 
 Open **Feather AI** from the desktop app to talk with the assistant. Use **Set up local AI** for an OpenAI-compatible endpoint on this PC; Feather selects it by default when both providers are configured. Local setup saves only the endpoint and model name. The endpoint must be loopback (`localhost`, `127.0.0.1`, or `::1`). **Set up online AI** is an optional fallback; its provider secret stays in memory for that run and is not saved. Chat goes to the configured model; web searches send the search terms to DuckDuckGo and selected pages open in the default browser.
 
-Feather AI keeps a bounded history of up to eight completed user/assistant turns per conversation on this PC and sends it with later turns in that conversation. Start a new conversation to clear its active history. Do not enter secrets or sensitive information you do not want stored in the local task history. The first web tools search public pages and open a page in the default browser; they do not click page controls, submit forms, or make purchases. No model weights are bundled or downloaded, and Feather Prep still runs inside Windows rather than replacing it.
+Feather AI keeps a bounded history of up to eight completed user/assistant turns per conversation on this PC and sends it with later turns in that conversation. Start a new conversation to clear its active history. Do not enter secrets or sensitive information you do not want stored in the local task history. The first web tools search public pages, read bounded public HTTPS pages, and open a page in the default browser; they do not click page controls, submit forms, or make purchases. No model weights are bundled or downloaded, and Feather Prep still runs inside Windows rather than replacing it.
 
 To let the AI execute commands as your user account, start with `python3 -m agent.server --enable-commands`.
 

@@ -14,7 +14,7 @@ This is a connector foundation, not a bundled model runtime. It does not install
 - When neither provider is configured, Feather continues to run its local hardware scan and agent without sending tasks to a model.
 - Local setup persists only the non-secret endpoint and model name. Online credentials are held in memory for the current run and are not written to the local settings file.
 - The Feather AI page keeps up to eight completed turns per conversation in local task history and sends that bounded history with subsequent turns. A new conversation starts a separate context.
-- Local AI can search public web results and open a selected URL in the default browser. This first step cannot click page controls, fill or submit forms, or make purchases.
+- Local AI can search public web results, read bounded public HTTPS pages, and open a selected URL in the default browser. This first step cannot click page controls, fill or submit forms, or make purchases.
 
 ## Hardware profile
 
