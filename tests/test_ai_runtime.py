@@ -35,7 +35,10 @@ class CapabilityTests(unittest.TestCase):
         self.assertEqual(profile["fit_status"], "benchmark_required")
 
     def test_system_info_includes_ai_resource_profile(self):
-        with tempfile.TemporaryDirectory() as directory:
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as directory, \
+             patch("agent.core.platform.system", return_value="Linux"), \
+             patch("agent.core.linux_hardware_inventory", return_value={"memory_total_kib": 4096}):
             agent = Agent(os.path.join(directory, "data"), os.path.join(directory, "source"))
             self.assertTrue(agent.hardware_ready.wait(2))
             result = agent.call("system_info", {})
