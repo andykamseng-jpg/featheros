@@ -12,6 +12,7 @@ import urllib.request
 from agent.core import Agent, WINDOWS_INVENTORY_SCRIPT, windows_hardware_inventory
 from agent.server import rpc, make_http
 from agent.cloud import run_task
+from agent import local_ai
 
 
 class AgentTests(unittest.TestCase):
@@ -20,9 +21,22 @@ class AgentTests(unittest.TestCase):
         self.root = Path(self.temp.name)
         self.source = self.root / 'source'
         self.source.mkdir()
+        stub={'collection_mode':'read_only','status':'test'}
+        self.scan_patches = [
+            patch('agent.core.windows_hardware_inventory', return_value=stub),
+            patch('agent.core.linux_hardware_inventory', return_value=stub),
+        ]
+        for scanner in self.scan_patches:
+            scanner.start()
         self.agent = Agent(self.root / 'data', self.source)
+        self.assertTrue(self.agent.hardware_ready.wait(3))
 
     def tearDown(self):
+        for thread in threading.enumerate():
+            if thread.name == 'feather-hardware-scan':
+                thread.join(timeout=3)
+        for scanner in reversed(self.scan_patches):
+            scanner.stop()
         self.temp.cleanup()
 
     def test_ai_can_create_and_edit_files(self):
@@ -125,9 +139,12 @@ class AgentTests(unittest.TestCase):
         with patch.dict(os.environ, {'FEATHER_AI_URL':'https://example.invalid/chat/completions','FEATHER_AI_KEY':'test-only','FEATHER_AI_MODEL':'mock'}), patch('agent.cloud.urllib.request.urlopen', side_effect=replies) as mock:
             self.assertEqual(run_task(self.agent, 'write a file'), 'Created cloud.txt')
             self.assertEqual(mock.call_count, 2)
+        first_payload=json.loads(mock.call_args_list[0].args[0].data)
+        self.assertNotIn('system_info', [item['function']['name'] for item in first_payload['tools']])
         self.assertEqual((self.agent.workspace / 'cloud.txt').read_text(), 'cloud-created')
 
     def test_http_access_controls_and_queue(self):
+        local_ai.save_settings(self.agent.data, 'http://127.0.0.1:11434/v1/chat/completions', 'test-model')
         server = make_http(self.agent, 0)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()

@@ -12,7 +12,7 @@ from tkinter import messagebox, ttk
 import webbrowser
 
 from agent import __version__
-from agent import cloud
+from agent import cloud, local_ai, assistant
 from agent.core import Agent
 from agent import registry
 from agent import updater
@@ -117,8 +117,8 @@ class FeatherPrep:
                                             name="feather-local-dashboard", daemon=True)
         self.http_thread.start()
         self.ai_thread = None
-        if cloud.configured():
-            self.ai_thread = threading.Thread(target=cloud.worker,
+        if assistant.configured(self.agent):
+            self.ai_thread = threading.Thread(target=assistant.worker,
                                               args=(self.agent, self.stop_event), daemon=True)
             self.ai_thread.start()
 
@@ -141,11 +141,17 @@ class FeatherPrep:
         self.registry_status.pack(anchor="w", pady=(4, 10))
         self.update_status_label = ttk.Label(frame, text="Checking for Feather updates…" if os.name == "nt" else "", wraplength=450)
         self.update_status_label.pack(anchor="w", pady=(0, 5))
-        ttk.Label(frame, text="Sends PC name, model, firmware version, device IDs and installed driver names/versions; no files or serial numbers.",
+        ai_state = assistant.status(self.agent)
+        ai_label = (ai_state["provider"] + " AI configured" if ai_state["configured"]
+                    else "local model not configured")
+        self.ai_status_label = ttk.Label(frame, text="Feather AI: " + ai_label, wraplength=450)
+        self.ai_status_label.pack(anchor="w", pady=(0, 5))
+        ttk.Label(frame, text="When sharing is enabled, Feather sends a bounded hardware summary to the registry; the full scan stays on this PC.",
                   wraplength=450).pack(anchor="w")
         buttons = ttk.Frame(frame)
         buttons.pack(fill="x", side="bottom")
-        ttk.Button(buttons, text="Scan details", command=self.open_dashboard).pack(side="left")
+        ttk.Button(buttons, text="Connect local AI", command=self.connect_local).pack(side="left")
+        ttk.Button(buttons, text="Scan details", command=self.open_dashboard).pack(side="left", padx=6)
         ttk.Button(buttons, text="Exit", command=self.close).pack(side="right")
         self.root.protocol("WM_DELETE_WINDOW", self.close)
         self.root.after(250, self.update_status)
@@ -250,6 +256,48 @@ class FeatherPrep:
         else:
             self.root.after(500, self.update_status)
 
+    def connect_local(self):
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Connect local Feather AI")
+        dialog.resizable(False, False)
+        dialog.transient(self.root)
+        dialog.grab_set()
+        frame = ttk.Frame(dialog, padding=18)
+        frame.pack(fill="both", expand=True)
+        ttk.Label(frame, text="Select a local OpenAI-compatible model server. Feather saves only its loopback endpoint and model name.",
+                  wraplength=400).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 10))
+        ttk.Label(frame, text="Loopback endpoint").grid(row=1, column=0, sticky="w", pady=4)
+        endpoint = ttk.Entry(frame, width=48)
+        endpoint.insert(0, "http://127.0.0.1:11434/v1/chat/completions")
+        endpoint.grid(row=1, column=1, pady=4)
+        ttk.Label(frame, text="Model name").grid(row=2, column=0, sticky="w", pady=4)
+        model = ttk.Entry(frame, width=48)
+        model.insert(0, "qwen3.5:2b")
+        model.grid(row=2, column=1, pady=4)
+        ttk.Label(frame, text="The model server and model must already be installed. Feather does not download model weights.",
+                  wraplength=400).grid(row=3, column=0, columnspan=2, sticky="w", pady=(7, 10))
+
+        def submit():
+            try:
+                local_ai.save_settings(self.agent.data, endpoint.get().strip(), model.get().strip())
+                assistant.select_provider(self.agent, "local")
+            except ValueError as exc:
+                messagebox.showerror("Invalid local AI settings", str(exc), parent=dialog)
+                return
+            if not self.ai_thread or not self.ai_thread.is_alive():
+                self.ai_thread = threading.Thread(target=assistant.worker,
+                                                  args=(self.agent, self.stop_event), daemon=True)
+                self.ai_thread.start()
+            self.ai_status_label.configure(text="Feather AI: local model configured (" + model.get().strip() + ")")
+            dialog.destroy()
+            messagebox.showinfo("Local AI selected", "Feather now prefers this local model. The endpoint is checked when you send a task. Each task receives your saved hardware profile; chat context is not retained between tasks.", parent=self.root)
+
+        buttons = ttk.Frame(frame)
+        buttons.grid(row=4, column=0, columnspan=2, sticky="e")
+        ttk.Button(buttons, text="Connect", command=submit).pack(side="left", padx=5)
+        ttk.Button(buttons, text="Cancel", command=dialog.destroy).pack(side="left")
+        endpoint.focus_set()
+
     def connect_cloud(self):
         dialog = tk.Toplevel(self.root)
         dialog.title("Connect cloud AI")
@@ -281,8 +329,10 @@ class FeatherPrep:
                 messagebox.showerror("Missing information", "Enter the model name and API key.", parent=dialog)
                 return
             os.environ.update(FEATHER_AI_URL=url, FEATHER_AI_MODEL=model_name, FEATHER_AI_KEY=secret)
+            assistant.select_provider(self.agent, "online")
+            self.ai_status_label.configure(text="Feather AI: online " + model_name)
             if not self.ai_thread or not self.ai_thread.is_alive():
-                self.ai_thread = threading.Thread(target=cloud.worker,
+                self.ai_thread = threading.Thread(target=assistant.worker,
                                                   args=(self.agent, self.stop_event), daemon=True)
                 self.ai_thread.start()
             key.delete(0, "end")

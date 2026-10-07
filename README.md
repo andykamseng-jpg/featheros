@@ -1,6 +1,6 @@
 # FeatherOS Starter — Feather AI Core 0.6
 
-First working layer: the computer's AI centre. FeatherOS is intended to run across a broad range of PCs, with a cloud-connected AI agent controlling Feather through a local system service and exposing machine tools over MCP. Run a small local agent, connect a cloud model or MCP client, inspect the machine, edit Feather's source and user projects, run commands, keep code revisions on disk, and interact by typing or voice.
+First working layer: the computer's AI centre. FeatherOS is intended to run across a broad range of PCs, with a local AI agent controlling Feather through a local system service and exposing machine tools over MCP. When configured, a loopback local model is the default; an online model is an explicit provider choice. The agent can inspect the machine, edit Feather's source and user projects, run commands when enabled, and keep code revisions on disk.
 
 MCP is the tool-connection protocol, not the operating system itself. Feather's local agent connects the AI to the OS and hardware; the AI can use the tools the agent exposes. The long-term goal is for this AI control layer to work across Feather computers and supported Windows installations, with a matching compatibility adapter for each Windows generation and machine setup.
 
@@ -67,3 +67,9 @@ Feather Prep scans hardware automatically after launch. `system_info.resource_pr
 ### Automatic update rules
 
 No recurring 30-minute timer: the current app checks once at startup. It accepts a strictly newer official GitHub release only after size and SHA-256 verification. Each release can launch its automatic installer once per PC; a persisted claim prevents restart loops and concurrent launches. Failed installation of an already-started release requires an explicit manual installer retry. Setup removes the legacy scheduled task and launches Feather automatically. The release version is baked into both compiled apps and verified by running the console app without a valid version environment variable. Live release notification and direct Feather-to-Feather sync are still unfinished.
+
+### Local hardware profile and AI
+
+After each successful read-only startup scan, Feather saves the full report at `%LOCALAPPDATA%\\FeatherOS\\data\\hardware-profile.json` on Windows. The latest saved scan remains available after restart; a fresh scan replaces it when successful. `system_info` returns the report and resource profile. Each independent AI task receives a compact hardware summary without unique device-instance paths. Raw hardware inventory is not exposed through the AI tool loop. When hardware sharing is enabled, the registry receives its existing bounded, sanitized summary.
+
+Feather prefers a configured local OpenAI-compatible model endpoint and restricts it to `localhost` or a loopback IP. Only the endpoint and model name are saved. The model server and weights must already be installed; Feather does not fetch model weights. Select online AI only explicitly; online credentials stay in memory. Each request starts with a fresh context. Browser automation and Windows replacement are not included.

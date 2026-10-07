@@ -11,17 +11,26 @@
 </head>
 <body><main>
   <h1>🪶 Feather Prep</h1>
-  <p>The hardware scan runs automatically. Feather sends a bounded report to your Vercel registry when sharing is enabled in the desktop app.</p>
+  <p>The full hardware scan is saved on this PC. Feather sends a bounded hardware summary to your Vercel registry only while sharing is enabled in the desktop app.</p>
   <section class="card">
-    <div class="step"><span class="label">1. Scan hardware</span><p id="scan">Checking…</p></div>
+    <div class="step"><span class="label">1. Scan hardware</span><p id="scan">Checking…</p><p id="saved-profile"></p></div>
     <div class="step"><span class="label">2. Report to registry</span><p>Check the desktop app for delivery status.</p></div>
     <div class="step"><span class="label">3. Installation readiness</span><p id="ready">Waiting for scan…</p></div>
+  </section>
+  <section class="card">
+    <strong>Feather AI task</strong><p id="ai-status">Checking the selected AI provider…</p>
+    <form id="task-form"><label for="task-text">Ask Feather to inspect or work on this PC</label>
+      <textarea id="task-text" rows="3" maxlength="8000" required></textarea>
+      <button type="submit">Send task</button>
+    </form><p id="task-result" role="status"></p>
   </section>
   <p class="note">Windows has not been partitioned, erased, or replaced. Firmware and replacement OS drivers can only be loaded after a tested bootable OS image exists.</p>
   <details><summary>Hardware scan details</summary><pre id="report"></pre><button id="download" type="button">Download scan report</button></details>
   <script>
     const token='__TOKEN__';let report={};
-    async function load(){try{const response=await fetch('/api/state',{headers:{'X-Feather-Token':token}});if(!response.ok)throw Error(`Local scan unavailable (${response.status})`);const state=await response.json();report=state.system.hardware||{};const failed=report.status==='unavailable';const scanning=report.status==='scanning';document.getElementById('scan').textContent=scanning?'Scanning…':failed?'Scan unavailable':'Read-only scan complete';document.getElementById('ready').textContent=scanning?'Waiting for scan…':failed?'Blocked: scan unavailable':'Blocked: a bootable FeatherOS image and matching drivers are not ready';document.getElementById('report').textContent=JSON.stringify(report,null,2);if(scanning)setTimeout(load,1500)}catch(e){document.getElementById('scan').textContent=e.message}}
+    async function load(){try{const response=await fetch('/api/state',{headers:{'X-Feather-Token':token}});if(!response.ok)throw Error(`Local scan unavailable (${response.status})`);const state=await response.json();report=state.system.hardware||{};const ai=state.ai||{};document.getElementById('ai-status').textContent=ai.configured?`Selected ${ai.provider} AI${ai.model?' · '+ai.model:''}. Your saved hardware summary is included with each independent task.`:'AI is not configured. In Feather Prep, choose Connect local AI and enter a loopback model endpoint.';const status=state.system.hardware_scan_status;const failed=status==='unavailable'||status==='unsupported_platform';const scanning=status==='scanning';document.getElementById('scan').textContent=scanning?'Scanning… using the last saved report if available':failed?'New scan unavailable; showing the last saved report if available':'Read-only scan complete';const saved=document.getElementById('saved-profile');saved.textContent=state.system.hardware_profile_file?`Saved on this PC${state.system.hardware_profile_saved_at?' at '+state.system.hardware_profile_saved_at:''}: ${state.system.hardware_profile_file}`:'A successful scan will be saved on this PC.';document.getElementById('ready').textContent=scanning?'Waiting for scan…':failed?'Blocked: fresh scan unavailable':'Blocked: a bootable FeatherOS image and matching drivers are not ready';document.getElementById('report').textContent=JSON.stringify(report,null,2);if(scanning)setTimeout(load,1500)}catch(e){document.getElementById('scan').textContent=e.message}}
+    const form=document.getElementById('task-form');
+    form.onsubmit=async event=>{event.preventDefault();const box=document.getElementById('task-text'),out=document.getElementById('task-result');const text=box.value.trim();if(!text)return;out.textContent='Sending task to the selected Feather AI…';try{const response=await fetch('/api/task',{method:'POST',headers:{'X-Feather-Token':token,'Content-Type':'application/json'},body:JSON.stringify({text})});const result=await response.json();if(!response.ok)throw Error(result.error||'Task could not be sent');box.value='';out.textContent='Working…';const id=result.id;for(let i=0;i<600;i++){await new Promise(resolve=>setTimeout(resolve,1500));const stateResponse=await fetch('/api/state',{headers:{'X-Feather-Token':token}});const state=await stateResponse.json();const task=(state.tasks||[]).find(item=>item.id===id);if(task&&task.state==='done'){out.textContent=task.reply||'Feather completed the task.';break}if(task&&task.state==='error'){out.textContent=task.reply||'The task failed.';break}}}catch(e){out.textContent=e.message}};
     document.getElementById('download').onclick=()=>{const url=URL.createObjectURL(new Blob([JSON.stringify(report,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='feather-hardware-scan.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
     load();
   </script>
