@@ -109,6 +109,7 @@ class LocalAiTests(unittest.TestCase):
             agent.hardware_profile={'scanned_at':'today','hardware':{
                 'processors':[{'Name':'Feather-context CPU'}],
                 'graphics':[{'Name':'Local GPU','PNPDeviceID':'unique-instance-42'}]}}
+            agent.hardware_inventory={'collection_mode':'read_only','status':'unavailable'}
             local_ai.save_settings(agent.data, 'http://127.0.0.1:11434/v1/chat/completions', 'test-model')
             class Response:
                 def __enter__(self): return self

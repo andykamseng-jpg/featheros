@@ -227,7 +227,14 @@ class Agent:
         with self.hardware_lock:
             profile = self.hardware_profile
             current = self.hardware_inventory
-            if profile:
+            current_is_usable = current.get("status") not in {
+                "scanning", "unavailable", "unsupported_platform"
+            }
+            if current_is_usable:
+                source = current
+                scanned_at = (profile.get("scanned_at")
+                              if profile and profile.get("hardware") == current else None)
+            elif profile:
                 source = profile.get("hardware", {})
                 scanned_at = profile.get("scanned_at")
             else:
@@ -329,11 +336,13 @@ class Agent:
             with self.hardware_lock:
                 hardware = json.loads(json.dumps(self.hardware_inventory))
                 profile = self.hardware_profile
+            scan_status = hardware.get("status", "complete")
             if hardware.get("status") in {"scanning", "unavailable"} and profile:
                 hardware = json.loads(json.dumps(profile["hardware"]))
             return {"os": platform.system(), "release": platform.release(),
                     "architecture": platform.machine(), "disk_free_bytes": usage.free,
                     "hardware": hardware,
+                    "hardware_scan_status": scan_status,
                     "resource_profile": resource_profile(hardware),
                     "hardware_profile_saved_at": profile.get("scanned_at") if profile else None,
                     "hardware_profile_file": str(self.hardware_profile_path) if profile else None,
