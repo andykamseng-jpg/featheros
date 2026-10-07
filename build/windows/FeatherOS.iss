@@ -1,5 +1,5 @@
 #ifndef AppVersion
-  #define AppVersion "0.6.6"
+  #define AppVersion "0.6.8"
 #endif
 
 [Setup]
@@ -22,18 +22,18 @@ RestartApplications=no
 UninstallDisplayName=Feather Prep
 
 [Files]
-Source: "..\..\dist\FeatherPrep.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\..\dist\FeatherMCP.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\..\dist\prep\FeatherPrep\*"; DestDir: "{app}\FeatherPrep"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\..\dist\mcp\FeatherMCP\*"; DestDir: "{app}\FeatherMCP"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\..\dist\README-Windows.txt"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{group}\Feather Prep"; Filename: "{app}\FeatherPrep.exe"
+Name: "{group}\Feather Prep"; Filename: "{app}\FeatherPrep\FeatherPrep.exe"
 Name: "{group}\Uninstall Feather Prep"; Filename: "{uninstallexe}"
 
 [Run]
-Filename: "{app}\FeatherPrep.exe"; Description: "Launch Feather Prep"; Flags: nowait postinstall skipifsilent
-Filename: "{app}\FeatherPrep.exe"; Flags: nowait skipifnotsilent
-Filename: "{app}\FeatherPrep.exe"; Parameters: "--register-update-task"; Flags: nowait runhidden
+Filename: "{app}\FeatherPrep\FeatherPrep.exe"; Description: "Launch Feather Prep"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\FeatherPrep\FeatherPrep.exe"; Flags: nowait skipifnotsilent
+Filename: "{app}\FeatherPrep\FeatherPrep.exe"; Parameters: "--register-update-task"; Flags: nowait runhidden
 
 [UninstallRun]
 Filename: "{sys}\schtasks.exe"; Parameters: "/Delete /TN ""FeatherOS Auto Update"" /F"; Flags: runhidden; RunOnceId: "FeatherOSUpdateTask"
