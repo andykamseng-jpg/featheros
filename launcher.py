@@ -29,6 +29,48 @@ def app_data_dir():
     return base / APP_NAME
 
 
+def _update_once():
+    if os.name != "nt" or os.environ.get("FEATHER_AUTO_UPDATE") == "0":
+        return
+    home = app_data_dir()
+    home.mkdir(parents=True, exist_ok=True)
+    logging.basicConfig(filename=home / "feather.log", level=logging.INFO,
+                        format="%(asctime)s %(levelname)s %(message)s")
+    try:
+        release = updater.fetch_latest()
+        if not release:
+            return
+        installer = updater.stage_release(home, release)
+        subprocess.Popen([str(installer), "/SILENT", "/NORESTART", "/CLOSEAPPLICATIONS",
+                          "/FORCECLOSEAPPLICATIONS", "/NORESTARTAPPLICATIONS"],
+                         close_fds=True, cwd=str(home))
+    except Exception:
+        logging.exception("Scheduled automatic update check failed")
+
+
+def _register_update_task():
+    if os.name != "nt":
+        return
+    home = app_data_dir()
+    home.mkdir(parents=True, exist_ok=True)
+    logging.basicConfig(filename=home / "feather.log", level=logging.INFO,
+                        format="%(asctime)s %(levelname)s %(message)s")
+    executable = str(Path(sys.executable).resolve())
+    task_command = f'"{executable}" --update-once'
+    try:
+        result = subprocess.run(
+            ["schtasks.exe", "/Create", "/SC", "MINUTE", "/MO", "30",
+             "/TN", "FeatherOS Auto Update", "/TR", task_command,
+             "/F", "/RL", "LIMITED", "/IT"],
+            capture_output=True, text=True, timeout=30, check=False,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+        if result.returncode:
+            logging.warning("Could not register per-user update task: %s", result.stderr.strip())
+    except (OSError, subprocess.SubprocessError):
+        logging.exception("Could not register per-user update task")
+
+
 def bundled_source_dir():
     # PyInstaller extracts embedded resources here; in a source checkout this
     # resolves to the checkout root.
@@ -115,7 +157,7 @@ class FeatherPrep:
             threading.Thread(target=self.check_updates, name="feather-auto-update", daemon=True).start()
 
     def check_updates(self):
-        """Check on startup and twice daily; never run a download that fails verification."""
+        """Check on startup and every 30 minutes; verify every downloaded release."""
         while not self.stop_event.is_set():
             try:
                 release = updater.fetch_latest()
@@ -125,7 +167,7 @@ class FeatherPrep:
                     self.root.after(0, lambda: self.install_update(installer, release["tag"]))
                     return
                 self.show_update_status("Feather Prep is up to date.")
-                delay = 12 * 60 * 60
+                delay = 30 * 60
             except Exception:
                 logging.exception("Automatic update check failed")
                 self.show_update_status("Update check unavailable; retrying later.")
@@ -274,6 +316,12 @@ class FeatherPrep:
 
 
 def main():
+    if "--update-once" in sys.argv[1:]:
+        _update_once()
+        return
+    if "--register-update-task" in sys.argv[1:]:
+        _register_update_task()
+        return
     if "--mcp" in sys.argv[1:]:
         # MCP clients use stdio, while the same app-data paths preserve reports
         # and source edits between MCP sessions.

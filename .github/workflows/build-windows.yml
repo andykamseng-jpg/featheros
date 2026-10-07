@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: "Public release tag (for example v0.6.4)"
+        description: "Public release tag (for example v0.6.6)"
         required: true
-        default: "v0.6.4"
+        default: "v0.6.6"
         type: string
 
 permissions:
@@ -18,6 +18,7 @@ jobs:
     env:
       FEATHER_SIGNING_CERT_BASE64: ${{ secrets.FEATHER_SIGNING_CERT_BASE64 }}
       FEATHER_SIGNING_CERT_PASSWORD: ${{ secrets.FEATHER_SIGNING_CERT_PASSWORD }}
+      RELEASE_TAG: ${{ inputs.release_tag }}
     outputs:
       suffix: ${{ steps.bundle.outputs.suffix }}
     steps:
@@ -69,11 +70,17 @@ jobs:
 
           Unsigned development installers and apps may be blocked by Smart App Control. Do not disable Windows protection to run this build. A release for protected Windows devices needs a valid RSA code-signing certificate from a trusted provider.
 
-          Source editing takes effect in the stored source tree and may need a rebuilt app to run. Hardware is scanned automatically; the bounded report is sent to the configured Vercel registry by default. Future Feather Prep releases are checked automatically, downloaded from this repository, and verified against their published SHA-256 digest before Setup runs. Existing 0.6.3 and earlier installations need this installer once. The sharing checkbox can stop and remove a device report. AI input will be designed for the later installed OS stage.
+          Source editing takes effect in the stored source tree and may need a rebuilt app to run. Hardware is scanned automatically; the bounded report is sent to the configured Vercel registry by default. Feather Prep 0.6.6 registers a per-user Windows task that checks for signed-off official releases every 30 minutes while the user is signed in. Downloads are verified against the GitHub-published SHA-256 digest before Setup runs. Existing 0.6.3 and earlier installations need this installer once. The sharing checkbox can stop and remove a device report. AI input will be designed for the later installed OS stage.
           "@ | Set-Content -Encoding UTF8 dist/README-Windows.txt
           $compiler = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
           if (-not (Test-Path $compiler)) { throw "Inno Setup compiler was not found." }
-          & $compiler /Qp /DAppVersion=0.6.4 build/windows/FeatherOS.iss
+          $releaseVersion = $env:RELEASE_TAG -replace '^v', ''
+          if ($releaseVersion -notmatch '^\d+\.\d+\.\d+$') { throw "Release tag must be vMAJOR.MINOR.PATCH." }
+          $agentVersion = python -c "from agent import __version__; print(__version__)"
+          if ($LASTEXITCODE -ne 0 -or $agentVersion -ne $releaseVersion) {
+            throw "Release tag version $releaseVersion must match the agent version $agentVersion."
+          }
+          & $compiler /Qp "/DAppVersion=$releaseVersion" build/windows/FeatherOS.iss
           if ($LASTEXITCODE -ne 0) { throw "The FeatherOS installer build failed." }
           if ($signed) {
             $signTool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" |

@@ -1,5 +1,5 @@
 #ifndef AppVersion
-  #define AppVersion "0.6.4"
+  #define AppVersion "0.6.6"
 #endif
 
 [Setup]
@@ -33,3 +33,7 @@ Name: "{group}\Uninstall Feather Prep"; Filename: "{uninstallexe}"
 [Run]
 Filename: "{app}\FeatherPrep.exe"; Description: "Launch Feather Prep"; Flags: nowait postinstall skipifsilent
 Filename: "{app}\FeatherPrep.exe"; Flags: nowait skipifnotsilent
+Filename: "{app}\FeatherPrep.exe"; Parameters: "--register-update-task"; Flags: nowait runhidden
+
+[UninstallRun]
+Filename: "{sys}\schtasks.exe"; Parameters: "/Delete /TN ""FeatherOS Auto Update"" /F"; Flags: runhidden; RunOnceId: "FeatherOSUpdateTask"
