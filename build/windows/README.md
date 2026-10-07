@@ -1,6 +1,6 @@
 # Build the self-contained Windows app
 
-The Windows release uses PyInstaller to bundle Python and the Feather agent into `FeatherPrep.exe` and `FeatherMCP.exe`; users do not install Python. Inno Setup packages them as a per-user `FeatherOS-Setup.exe`. The included GitHub Actions workflow creates the installer and a ZIP artifact. It builds x64 apps for a first modern Windows test target; it is not a compatibility claim for XP, Windows 7, 32-bit Windows, ARM, or every Windows release.
+The Windows release uses PyInstaller to bundle Python and the Feather agent into `FeatherPrep.exe` and `FeatherMCP.exe`; users do not install Python. Inno Setup packages them as a per-user versioned installer, such as `FeatherOS-Setup-0.6.11.exe`. The release also includes a `FeatherOS-Setup.exe` alias for existing automatic updaters. Setup launches Feather Prep automatically after installation. The included GitHub Actions workflow creates the installer and a ZIP artifact. It builds x64 apps for a first modern Windows test target; it is not a compatibility claim for XP, Windows 7, 32-bit Windows, ARM, or every Windows release.
 
 `FeatherPrep.exe` starts a small desktop window, opens the local dashboard, and automatically collects a read-only hardware inventory. It leaves the current Windows installation and disks unchanged. The optional cloud connection asks for an HTTPS endpoint, model, and key; the key remains in process memory and is not written to Feather's files.
 

@@ -1,5 +1,5 @@
 #ifndef AppVersion
-  #define AppVersion "0.6.8"
+  #define AppVersion "0.6.11"
 #endif
 
 [Setup]
@@ -13,7 +13,7 @@ PrivilegesRequired=lowest
 ArchitecturesAllowed=x64
 ArchitecturesInstallIn64BitMode=x64
 OutputDir=..\..\dist
-OutputBaseFilename=FeatherOS-Setup
+OutputBaseFilename=FeatherOS-Setup-{#AppVersion}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -32,8 +32,7 @@ Name: "{group}\Uninstall Feather Prep"; Filename: "{uninstallexe}"
 
 [Run]
 Filename: "{app}\FeatherPrep\FeatherPrep.exe"; Parameters: "--remove-update-task"; Flags: runhidden waituntilterminated
-Filename: "{app}\FeatherPrep\FeatherPrep.exe"; Description: "Launch Feather Prep"; Flags: nowait postinstall skipifsilent
-Filename: "{app}\FeatherPrep\FeatherPrep.exe"; Flags: nowait skipifnotsilent
+Filename: "{app}\FeatherPrep\FeatherPrep.exe"; Flags: nowait
 
 [UninstallRun]
 Filename: "{sys}\schtasks.exe"; Parameters: "/Delete /TN ""FeatherOS Auto Update"" /F"; Flags: runhidden; RunOnceId: "FeatherOSUpdateTask"
