@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from agent import local_ai, runtime
+from agent import local_ai, runtime, web
 from agent.capabilities import profile_hardware
 from agent.core import Agent
 
@@ -60,15 +60,15 @@ class LocalAIConfigurationTests(unittest.TestCase):
         self.assertIsNone(local_ai.validate_configuration(
             "http://user@localhost:1234/v1/chat/completions", "feather-small"))
 
-    def test_online_precedes_local_by_default_and_local_can_be_selected(self):
+    def test_local_precedes_online_by_default_and_online_can_be_selected(self):
         with patch.dict(os.environ, {}, clear=True), \
              patch.object(local_ai, "configured", return_value=True), \
              patch.object(runtime.cloud, "configured", return_value=True):
-            self.assertEqual(runtime.selected_backend(), "online")
-        with patch.dict(os.environ, {"FEATHER_AI_MODE": "local"}, clear=True), \
+            self.assertEqual(runtime.selected_backend(), "local")
+        with patch.dict(os.environ, {"FEATHER_AI_MODE": "online"}, clear=True), \
              patch.object(local_ai, "configured", return_value=True), \
              patch.object(runtime.cloud, "configured", return_value=True):
-            self.assertEqual(runtime.selected_backend(), "local")
+            self.assertEqual(runtime.selected_backend(), "online")
         with patch.dict(os.environ, {}, clear=True), \
              patch.object(local_ai, "configured", return_value=False), \
              patch.object(runtime.cloud, "configured", return_value=True):
@@ -170,6 +170,38 @@ class LocalAIRunTests(unittest.TestCase):
             reply = local_ai.run_task(agent, "check this PC")
         self.assertEqual(reply, "Hardware scan complete.")
         self.assertEqual(agent.calls, [("system_info", {})])
+
+
+class LocalWebToolsTests(unittest.TestCase):
+    def test_search_returns_bounded_parsed_results(self):
+        class Response:
+            def __enter__(self): return self
+            def __exit__(self, *args): return None
+            def read(self, limit):
+                return (b'<a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fexample.com%2Fpage">'
+                        b'Example &amp; result</a><a class="result__snippet">A useful result.</a>')
+        with patch("agent.web.urllib.request.urlopen", return_value=Response()):
+            result = web.search_web("Feather AI")
+        self.assertEqual(result["query"], "Feather AI")
+        self.assertEqual(result["results"], [{
+            "title": "Example & result", "url": "https://example.com/page", "snippet": "A useful result."
+        }])
+
+    def test_open_browser_accepts_only_http_urls(self):
+        with patch("agent.web.webbrowser.open_new_tab", return_value=True) as open_tab:
+            result = web.open_in_browser("https://example.com/path")
+        self.assertTrue(result["opened"])
+        open_tab.assert_called_once_with("https://example.com/path")
+        for url in ("javascript:alert(1)", "file:///etc/passwd", "https://user@example.com"):
+            with self.assertRaises(ValueError):
+                web.open_in_browser(url)
+
+    def test_web_actions_are_available_to_the_agent(self):
+        with tempfile.TemporaryDirectory() as directory:
+            agent = Agent(os.path.join(directory, "data"), os.path.join(directory, "source"))
+            with patch("agent.web.search_web", return_value={"results": []}) as search:
+                self.assertEqual(agent.call("web_search", {"query": "Feather"}), {"results": []})
+            search.assert_called_once_with("Feather")
 
 
 if __name__ == "__main__":

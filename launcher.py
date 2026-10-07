@@ -156,7 +156,7 @@ class FeatherPrep:
         buttons.pack(fill="x", side="bottom")
         ttk.Button(buttons, text="Open Feather AI", command=self.open_dashboard).pack(side="left", padx=(0, 6))
         ttk.Button(buttons, text="Set up local AI", command=self.connect_local_ai).pack(side="left", padx=(0, 6))
-        ttk.Button(buttons, text="Set up online AI", command=self.connect_cloud).pack(side="left")
+        ttk.Button(buttons, text="Set up optional online AI", command=self.connect_cloud).pack(side="left")
         ttk.Button(buttons, text="Exit", command=self.close).pack(side="right")
         self.root.protocol("WM_DELETE_WINDOW", self.close)
         self.root.after(250, self.update_status)
@@ -270,7 +270,7 @@ class FeatherPrep:
         dialog.grab_set()
         frame = ttk.Frame(dialog, padding=18)
         frame.pack(fill="both", expand=True)
-        ttk.Label(frame, text="Connect a model server running on this PC. Feather keeps local prompts on this computer.",
+        ttk.Label(frame, text="Local Feather AI is preferred. Start an OpenAI-compatible model server on this PC first. Web searches send search terms online; pages open in your browser.",
                   wraplength=420).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 10))
         ttk.Label(frame, text="Local endpoint").grid(row=1, column=0, sticky="w", pady=4)
         endpoint = ttk.Entry(frame, width=48)
@@ -280,7 +280,7 @@ class FeatherPrep:
         model = ttk.Entry(frame, width=48)
         model.insert(0, os.environ.get("FEATHER_LOCAL_AI_MODEL", ""))
         model.grid(row=2, column=1, pady=4)
-        ttk.Label(frame, text="This build connects to an existing OpenAI-compatible local model server; it does not download a model.",
+        ttk.Label(frame, text="Feather connects to an existing local model server. It does not include or download model weights.",
                   wraplength=420).grid(row=3, column=0, columnspan=2, sticky="w", pady=(7, 10))
 
         def submit():

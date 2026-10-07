@@ -12,6 +12,7 @@ import uuid
 import zipfile
 
 from .capabilities import profile_hardware
+from . import web
 
 
 WINDOWS_INVENTORY_SCRIPT = r"""
@@ -145,6 +146,8 @@ TOOLS = [
     spec("revision_save", "Save a named code/workspace revision on the hard disk", {"root": STRING, "label": STRING}),
     spec("revision_list", "List saved revisions", {}),
     spec("revision_restore", "Restore saved files; extra newer files are retained; restart modified services separately", {"revision": STRING}, ("revision",)),
+    spec("web_search", "Search the public web and return a small set of result titles, URLs, and snippets", {"query": STRING}, ("query",)),
+    spec("browser_open", "Open an HTTP or HTTPS page in the user's default browser", {"url": STRING}, ("url",)),
     spec("command_run", "Run a command as the current user when enabled by launch option", {"argv": {"type": "array", "items": STRING, "minItems": 1}, "root": STRING}, ("argv",)),
     spec("task_next", "Claim the next typed/spoken task from the Feather dashboard", {}),
     spec("task_reply", "Complete a claimed task with a response shown and spoken by the dashboard", {"id": STRING, "text": STRING}, ("id", "text")),
@@ -316,6 +319,10 @@ class Agent:
                     p.parent.mkdir(parents=True, exist_ok=True)
                     p.write_bytes(z.read(n))
             return {"restored": rev, "extra_new_files_retained": True}
+        if name == "web_search":
+            return web.search_web(a["query"])
+        if name == "browser_open":
+            return web.open_in_browser(a["url"])
         if name == "command_run":
             if not self.enable_commands:
                 raise ValueError("Commands require --enable-commands at launch")

@@ -1,4 +1,4 @@
-"""Select the online model by default, with an explicit local override."""
+"""Prefer the local model, with an explicit online override."""
 import os
 
 from . import cloud, local_ai
@@ -10,10 +10,10 @@ def selected_backend():
         return "online"
     if preference == "local" and local_ai.configured():
         return "local"
-    if cloud.configured():
-        return "online"
     if local_ai.configured():
         return "local"
+    if cloud.configured():
+        return "online"
     return "none"
 
 

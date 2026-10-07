@@ -8,18 +8,19 @@ This is a connector foundation, not a bundled model runtime. It does not install
 
 ## Choosing the active provider
 
-- If online and local providers are configured, Feather selects online AI by default for internet-first use.
-- The user can explicitly select local AI from the desktop app. If only the local endpoint is configured, Feather uses it.
+- If online and local providers are configured, Feather selects local AI by default.
+- The user can explicitly select an online provider from the desktop app. If only one provider is configured, Feather uses it.
 - Local and online provider configuration stays separate; this milestone does not silently send a failed local request to the online provider.
 - When neither provider is configured, Feather continues to run its local hardware scan and agent without sending tasks to a model.
 - Local setup persists only the non-secret endpoint and model name. Online credentials are held in memory for the current run and are not written to the local settings file.
 - The Feather AI page keeps up to eight completed turns per conversation in local task history and sends that bounded history with subsequent turns. A new conversation starts a separate context.
+- Local AI can search public web results and open a selected URL in the default browser. This first step cannot click page controls, fill or submit forms, or make purchases.
 
 ## Hardware profile
 
 The `system_info` result reports RAM, logical processor count, available graphics names, a coarse resource band, and a local-model hint. The hint is deliberately cautious. It does not inspect GPU VRAM, benchmark inference speed, or identify an ideal model. Model fit remains benchmark-required on each target computer.
 
-This milestone does not include browser automation, does not bundle or download model weights, and does not replace Windows. Feather Prep remains an app running inside Windows; booting FeatherOS and safely replacing Windows are future work.
+This milestone does not bundle or download model weights, and does not replace Windows. Feather Prep remains an app running inside Windows; booting FeatherOS and safely replacing Windows are future work.
 
 ## Next validation
 

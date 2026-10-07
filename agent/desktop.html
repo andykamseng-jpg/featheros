@@ -45,7 +45,7 @@
         const state=await response.json();
         report=state.system.hardware||{};
         const backend=state.ai_backend||'none';
-        status.textContent=backend==='local'?'Local AI selected. Prompts stay on this computer.':backend==='online'?'Online AI selected. Prompts are sent to your configured provider.':'No AI connected. Use Set up local AI or Set up online AI in Feather Prep.';
+        status.textContent=backend==='local'?'Local Feather AI is your assistant. Chat goes to your local model; web searches send search terms online, and pages open in your browser.':backend==='online'?'Online AI selected. Prompts are sent to your configured provider.':'No AI connected. Set up local AI in Feather Prep, or choose the optional online provider.';
         input.disabled=backend==='none';
         send.disabled=backend==='none';
         const messages=document.getElementById('messages');

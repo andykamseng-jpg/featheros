@@ -44,10 +44,12 @@ def run_task(agent, text, conversation_id=None):
         raise RuntimeError("Local AI is not configured for this computer")
     tools = [tool for tool in TOOLS if not tool["name"].startswith("task_")]
     messages = [
-        {"role": "system", "content": "You operate Feather through its local tools. "
+        {"role": "system", "content": "You are the user's local Feather AI assistant. You operate Feather through its local tools. "
          "Inspect before changing files. Use root=source for Feather code and root=workspace for user projects. "
          "Save a revision before edits. Run relevant verification when commands are enabled. "
-         "Do not claim an OS install or test happened without evidence. Report changes and limitations."},
+         "Use web_search for public online information and browser_open to show a selected page in the user's browser. "
+         "Do not claim an OS install or test happened without evidence. Never claim to have clicked, purchased, posted, or submitted a form; these actions are not available. "
+         "Report what you did and any limitations."},
     ]
     if hasattr(agent, "conversation_context"):
         messages.extend(agent.conversation_context(conversation_id))

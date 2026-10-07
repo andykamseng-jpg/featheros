@@ -1,14 +1,16 @@
 # FeatherOS Starter — Feather AI Core 0.6
 
-First working layer: the computer's AI centre. FeatherOS is intended to run across a broad range of PCs, with a cloud-connected AI agent controlling Feather through a local system service and exposing machine tools over MCP. Run a small local agent, connect a cloud model or MCP client, inspect the machine, edit Feather's source and user projects, run commands, keep code revisions on disk, and interact by typing or voice.
+First working layer: the computer's AI centre. FeatherOS is intended to run across a broad range of PCs, with a local AI agent controlling supported Feather tools through a local system service and exposing them over MCP. The local model is preferred; an online model is optional. The agent can inspect the machine, edit Feather's source and user projects, search the public web, open pages in the default browser, and keep code revisions on disk.
 
 MCP is the tool-connection protocol, not the operating system itself. Feather's local agent connects the AI to the OS and hardware; the AI can use the tools the agent exposes. The long-term goal is for this AI control layer to work across Feather computers and supported Windows installations, with a matching compatibility adapter for each Windows generation and machine setup.
 
 ## What works in this starter
 
 - Windows launcher with an automatic hardware scan, bounded report to the private Vercel registry, and a simple local scan-details page.
-- Online AI worker for a configured HTTPS chat-completions-compatible model with function calling; when online and local providers are both configured, online is selected by default.
-- Optional local adapter for an OpenAI-compatible server on the same computer, with a cautious RAM/CPU/graphics resource profile and Feather AI chat page.
+- Local AI assistant using an OpenAI-compatible server on this computer; when both providers are configured, local AI is selected by default.
+- Local AI can search public web results and open a selected page in the default browser. It cannot interact with page controls, submit forms, or complete purchases in this milestone.
+- Optional online AI worker for a configured HTTPS chat-completions-compatible model with function calling.
+- A cautious RAM/CPU/graphics resource profile and Feather AI chat page.
 - MCP stdio tools for computer information, file edits, current-user commands, revisions and dashboard tasks.
 - Automatic read-only hardware scan as soon as the local Feather agent starts on supported Windows and Linux hosts; the AI can read the results through MCP.
 - Scan-details page that displays the read-only scan results and lets the user download local JSON for review.
@@ -25,9 +27,9 @@ Linux: run `sh START-AGENT.sh`.
 
 The Windows launcher does not open a browser automatically. Select **Open Feather AI** to open the local chat and hardware report. The desktop window shows whether the registry accepted the report.
 
-Open **Feather AI** from the desktop app to chat and submit tasks. Use **Set up online AI** for an HTTPS provider or **Set up local AI** for an OpenAI-compatible endpoint on this PC. Online AI is preferred when both are configured; local can be explicitly selected, and is used automatically when it is the only configured provider. Local setup saves only the endpoint and model name. Online provider secrets stay in memory for that run and are not saved. The local endpoint must be loopback (`localhost`, `127.0.0.1`, or `::1`).
+Open **Feather AI** from the desktop app to talk with the assistant. Use **Set up local AI** for an OpenAI-compatible endpoint on this PC; Feather selects it by default when both providers are configured. Local setup saves only the endpoint and model name. The endpoint must be loopback (`localhost`, `127.0.0.1`, or `::1`). **Set up online AI** is an optional fallback; its provider secret stays in memory for that run and is not saved. Chat goes to the configured model; web searches send the search terms to DuckDuckGo and selected pages open in the default browser.
 
-Feather AI keeps a bounded history of up to eight completed user/assistant turns per conversation on this PC and sends it with later turns in that conversation. Start a new conversation to clear its active history. Do not enter secrets or sensitive information you do not want stored in the local task history. This does not include browser automation, bundled or downloaded model weights, or a replacement for Windows; Feather Prep still runs inside Windows.
+Feather AI keeps a bounded history of up to eight completed user/assistant turns per conversation on this PC and sends it with later turns in that conversation. Start a new conversation to clear its active history. Do not enter secrets or sensitive information you do not want stored in the local task history. The first web tools search public pages and open a page in the default browser; they do not click page controls, submit forms, or make purchases. No model weights are bundled or downloaded, and Feather Prep still runs inside Windows rather than replacing it.
 
 To let the AI execute commands as your user account, start with `python3 -m agent.server --enable-commands`.
 

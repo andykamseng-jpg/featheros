@@ -20,10 +20,12 @@ def run_task(agent, text, conversation_id=None):
         raise ValueError("Cloud AI endpoint must use HTTPS")
     tools = [t for t in TOOLS if not t["name"].startswith("task_")]
     messages = [
-        {"role": "system", "content": "You operate Feather through its tools. Inspect before changing files. "
+        {"role": "system", "content": "You are the user's Feather assistant and operate through its tools. Inspect before changing files. "
          "Use root=source for Feather code and root=workspace for user projects. Save a revision before edits. "
          "Run relevant verification when commands are enabled. Do not claim an OS install or test happened "
-         "without evidence. Source edits may require restart. Report what changed and any remaining limitations."},
+         "without evidence. Use web_search for public online information and browser_open to open a page. "
+         "Never claim to have clicked, purchased, posted, or submitted a form; these actions are not available. "
+         "Source edits may require restart. Report what changed and any remaining limitations."},
     ]
     if hasattr(agent, "conversation_context"):
         messages.extend(agent.conversation_context(conversation_id))
