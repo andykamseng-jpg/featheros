@@ -12,6 +12,7 @@ import urllib.request
 from agent.core import Agent, WINDOWS_INVENTORY_SCRIPT, windows_hardware_inventory
 from agent.server import rpc, make_http
 from agent.cloud import run_task
+from agent import local_ai
 
 
 class AgentTests(unittest.TestCase):
@@ -21,6 +22,7 @@ class AgentTests(unittest.TestCase):
         self.source = self.root / 'source'
         self.source.mkdir()
         self.agent = Agent(self.root / 'data', self.source)
+        self.assertTrue(self.agent.hardware_ready.wait(3))
 
     def tearDown(self):
         self.temp.cleanup()
@@ -125,9 +127,12 @@ class AgentTests(unittest.TestCase):
         with patch.dict(os.environ, {'FEATHER_AI_URL':'https://example.invalid/chat/completions','FEATHER_AI_KEY':'test-only','FEATHER_AI_MODEL':'mock'}), patch('agent.cloud.urllib.request.urlopen', side_effect=replies) as mock:
             self.assertEqual(run_task(self.agent, 'write a file'), 'Created cloud.txt')
             self.assertEqual(mock.call_count, 2)
+        first_payload=json.loads(mock.call_args_list[0].args[0].data)
+        self.assertNotIn('system_info', [item['function']['name'] for item in first_payload['tools']])
         self.assertEqual((self.agent.workspace / 'cloud.txt').read_text(), 'cloud-created')
 
     def test_http_access_controls_and_queue(self):
+        local_ai.save_settings(self.agent.data, 'http://127.0.0.1:11434/v1/chat/completions', 'test-model')
         server = make_http(self.agent, 0)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()

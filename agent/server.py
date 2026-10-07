@@ -7,7 +7,7 @@ import sys
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from .core import Agent, TOOLS
-from . import cloud
+from . import cloud, assistant
 
 
 VERSIONS = {"2024-11-05", "2025-03-26", "2025-06-18", "2025-11-25"}
@@ -94,6 +94,7 @@ def make_http(agent, port=8765):
                 with agent.lock:
                     body = {"system": agent.call("system_info", {}), "tasks": list(agent.tasks),
                             "cloud_configured": cloud.configured(),
+                            "ai": assistant.status(agent),
                             "mcp_connected": agent.mcp_connected,
                             "revisions": agent.call("revision_list", {})}
                 return self.reply(200, json.dumps(body))
@@ -108,6 +109,8 @@ def make_http(agent, port=8765):
                     raise ValueError("Invalid request size")
                 body = json.loads(self.rfile.read(length))
                 if self.path == "/api/task":
+                    if not assistant.configured(agent):
+                        return self.reply(503, json.dumps({"error": "The selected AI provider is not connected."}))
                     result = agent.submit(body.get("text"))
                 elif self.path == "/api/snapshot":
                     result = agent.call("revision_save", {"root": "source", "label": "Desktop checkpoint"})
@@ -132,8 +135,8 @@ def main(default_data_dir="feather-data", default_source_dir=None):
     server = make_http(agent, args.port)
     stop = threading.Event()
     threading.Thread(target=server.serve_forever, daemon=True).start()
-    if cloud.configured():
-        threading.Thread(target=cloud.worker, args=(agent, stop), daemon=True).start()
+    if assistant.configured(agent):
+        threading.Thread(target=assistant.worker, args=(agent, stop), daemon=True).start()
     if sys.stderr is not None:
         print("Feather desktop: http://127.0.0.1:" + str(server.server_port), file=sys.stderr, flush=True)
     try:

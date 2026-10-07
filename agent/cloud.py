@@ -18,12 +18,16 @@ def run_task(agent, text):
     endpoint = os.environ["FEATHER_AI_URL"]
     if urlparse(endpoint).scheme != "https":
         raise ValueError("Cloud AI endpoint must use HTTPS")
-    tools = [t for t in TOOLS if not t["name"].startswith("task_")]
+    # The saved compact hardware summary is in the prompt. Keep the raw inventory,
+    # including any unique device paths, out of the online provider tool loop.
+    tools = [t for t in TOOLS
+             if not t["name"].startswith("task_") and t["name"] != "system_info"]
     messages = [
         {"role": "system", "content": "You operate Feather through its tools. Inspect before changing files. "
          "Use root=source for Feather code and root=workspace for user projects. Save a revision before edits. "
          "Run relevant verification when commands are enabled. Do not claim an OS install or test happened "
-         "without evidence. Source edits may require restart. Report what changed and any remaining limitations."},
+         "without evidence. Source edits may require restart. Report what changed and any remaining limitations. "
+         "Use this saved local hardware profile when relevant: " + json.dumps(agent.hardware_context(), ensure_ascii=False)},
         {"role": "user", "content": text},
     ]
     for _ in range(8):

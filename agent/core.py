@@ -1,5 +1,6 @@
 import hashlib
 import json
+from datetime import datetime, timezone
 import os
 from pathlib import Path
 import platform
@@ -164,6 +165,8 @@ class Agent:
         self.mcp_connected = False
         self.lock = threading.RLock()
         self.hardware_lock = threading.Lock()
+        self.hardware_profile_path = self.data / "hardware-profile.json"
+        self.hardware_profile = self._load_hardware_profile()
         self.hardware_inventory = {"collection_mode": "read_only", "status": "scanning"}
         self.hardware_ready = threading.Event()
         threading.Thread(target=self._scan_local_hardware, name="feather-hardware-scan", daemon=True).start()
@@ -189,7 +192,80 @@ class Agent:
                           "reason": type(exc).__name__}
         with self.hardware_lock:
             self.hardware_inventory = inventory
+            if inventory.get("status") not in {"unavailable", "scanning", "unsupported_platform"}:
+                profile = {"scanned_at": datetime.now(timezone.utc).isoformat(), "hardware": inventory}
+                try:
+                    self._write_hardware_profile(profile)
+                    self.hardware_profile = profile
+                except OSError:
+                    pass
             self.hardware_ready.set()
+
+    def _load_hardware_profile(self):
+        try:
+            if self.hardware_profile_path.stat().st_size > 2 * 1024 * 1024:
+                return None
+            value = json.loads(self.hardware_profile_path.read_text(encoding="utf-8"))
+            if isinstance(value, dict) and isinstance(value.get("hardware"), dict):
+                return value
+        except (OSError, ValueError, TypeError):
+            pass
+        return None
+
+    def _write_hardware_profile(self, profile):
+        fd, temp = tempfile.mkstemp(dir=self.data, prefix=".hardware-profile-")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as output:
+                json.dump(profile, output, ensure_ascii=False, separators=(",", ":"))
+            os.replace(temp, self.hardware_profile_path)
+        finally:
+            if os.path.exists(temp):
+                os.unlink(temp)
+
+    def hardware_context(self):
+        """Return a compact, persistent summary for the local AI's system prompt."""
+        with self.hardware_lock:
+            profile = self.hardware_profile
+            current = self.hardware_inventory
+            if profile:
+                source = profile.get("hardware", {})
+                scanned_at = profile.get("scanned_at")
+            else:
+                source = current
+                scanned_at = None
+            snapshot = json.loads(json.dumps(source))
+        def first(value):
+            if isinstance(value, dict):
+                return value
+            return value[0] if isinstance(value, list) and value and isinstance(value[0], dict) else {}
+        computer = first(snapshot.get("computer"))
+        os_info = first(snapshot.get("operating_system"))
+        processors = snapshot.get("processors") if isinstance(snapshot.get("processors"), list) else []
+        graphics = snapshot.get("graphics") if isinstance(snapshot.get("graphics"), list) else []
+        disks = snapshot.get("disks") if isinstance(snapshot.get("disks"), list) else []
+        drivers = snapshot.get("installed_drivers") if isinstance(snapshot.get("installed_drivers"), list) else []
+        return {
+            "scanSavedAt": scanned_at,
+            "scanStatus": current.get("status", "complete"),
+            "manufacturer": computer.get("Manufacturer") or snapshot.get("manufacturer"),
+            "model": computer.get("Model") or snapshot.get("model"),
+            "operatingSystem": os_info.get("Caption"),
+            "processors": [{"name": row.get("Name"), "cores": row.get("NumberOfCores"),
+                            "logicalProcessors": row.get("NumberOfLogicalProcessors")}
+                           for row in processors[:4] if isinstance(row, dict)],
+            "totalMemoryBytes": computer.get("TotalPhysicalMemory"),
+            "memoryTotalKiB": snapshot.get("memory_total_kib"),
+            "memoryAvailableKiB": os_info.get("FreePhysicalMemory"),
+            "graphics": [{"name": row.get("Name"), "driverVersion": row.get("DriverVersion")}
+                         for row in graphics[:8] if isinstance(row, dict)],
+            "storage": [{"model": row.get("Model") or row.get("model"),
+                         "sizeBytes": row.get("Size") or row.get("size_bytes")}
+                        for row in disks[:8] if isinstance(row, dict)],
+            "installedDrivers": [{"name": row.get("DeviceName"), "provider": row.get("DriverProviderName"),
+                                  "version": row.get("DriverVersion")}
+                                 for row in drivers[:24] if isinstance(row, dict)],
+            "firmwareMode": snapshot.get("firmware_mode"),
+        }
 
     def path(self, root="workspace", name="."):
         if root not in self.roots:
@@ -252,10 +328,15 @@ class Agent:
             self.hardware_ready.wait(timeout=5)
             with self.hardware_lock:
                 hardware = json.loads(json.dumps(self.hardware_inventory))
+                profile = self.hardware_profile
+            if hardware.get("status") in {"scanning", "unavailable"} and profile:
+                hardware = json.loads(json.dumps(profile["hardware"]))
             return {"os": platform.system(), "release": platform.release(),
                     "architecture": platform.machine(), "disk_free_bytes": usage.free,
                     "hardware": hardware,
                     "resource_profile": resource_profile(hardware),
+                    "hardware_profile_saved_at": profile.get("scanned_at") if profile else None,
+                    "hardware_profile_file": str(self.hardware_profile_path) if profile else None,
                     "roots": {k: str(v) for k, v in self.roots.items()},
                     "commands_enabled": self.enable_commands}
         if name == "file_list":
