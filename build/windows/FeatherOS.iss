@@ -1,5 +1,5 @@
 #ifndef AppVersion
-  #define AppVersion "0.6.11"
+  #define AppVersion "0.6.14"
 #endif
 
 [Setup]
@@ -19,6 +19,7 @@ SolidCompression=yes
 WizardStyle=modern
 CloseApplications=force
 RestartApplications=no
+DisableFinishedPage=yes
 UninstallDisplayName=Feather Prep
 
 [Files]
@@ -36,3 +37,29 @@ Filename: "{app}\FeatherPrep\FeatherPrep.exe"; Flags: nowait
 
 [UninstallRun]
 Filename: "{sys}\schtasks.exe"; Parameters: "/Delete /TN ""FeatherOS Auto Update"" /F"; Flags: runhidden; RunOnceId: "FeatherOSUpdateTask"
+
+[Code]
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  ResultCode: Integer;
+  PowerShell: String;
+  Params: String;
+begin
+  Result := '';
+  ResultCode := 0;
+  PowerShell := ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe');
+  Params := '-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command ' +
+    '"$p=Get-Process -Name FeatherPrep -ErrorAction SilentlyContinue; ' +
+    'if ($p) { $p | ForEach-Object { [void]$_.CloseMainWindow() }; ' +
+    '$p | Wait-Process -Timeout 8 -ErrorAction SilentlyContinue; ' +
+    '$p=Get-Process -Name FeatherPrep -ErrorAction SilentlyContinue; ' +
+    'if ($p) { $p | Stop-Process -Force } }"';
+  if FileExists(PowerShell) then begin
+    if Exec(PowerShell, Params, '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then begin
+      if ResultCode = 0 then
+        Exit;
+    end;
+  end;
+  Exec(ExpandConstant('{sys}\taskkill.exe'), '/IM FeatherPrep.exe /T /F', '',
+    SW_HIDE, ewWaitUntilTerminated, ResultCode);
+end;
