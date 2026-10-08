@@ -192,7 +192,7 @@ jobs:
 
           This recovery release installs the Python runtime beside Feather Prep instead of extracting it into a temporary _MEI folder. If an earlier build fails with a python312.dll startup error, install this release once to restore the automatic updater.
 
-          Download FeatherOS-Setup-$($env:RELEASE_TAG -replace '^v', '').exe for the versioned installer. Setup launches Feather Prep automatically when installation finishes. FeatherOS-Setup.exe remains available for existing automatic updaters.
+          Download FeatherOS-Setup-$($env:RELEASE_TAG -replace '^v', '').exe for the versioned installer. Setup closes a running Feather Prep window automatically, launches the installed app, and closes without a Finish page. FeatherOS-Setup.exe remains available for existing automatic updaters.
 
           This development build is unsigned unless a trusted RSA signing certificate was configured in repository Actions secrets. Smart App Control may block the unsigned build. The public source repository contains the Windows build workflow and scan code.
           "@
