@@ -1,7 +1,7 @@
 """Select the configured Feather AI provider and process queued requests."""
 import json
 import threading
-from . import cloud, local_ai
+from . import cloud, local_ai, model_catalog
 
 
 def provider_path(agent):
@@ -32,8 +32,11 @@ def configured(agent):
 def status(agent):
     provider = selected_provider(agent)
     local = local_ai.load_settings(agent.data)
+    system = agent.call("system_info", {})
     return {"provider": provider, "configured": configured(agent),
             "model": local["model"] if provider == "local" and local else None,
+            "model_candidates": model_catalog.candidates(
+                system["resource_profile"], system["disk_free_bytes"]),
             "context": "Each task starts without previous chat context."}
 
 
