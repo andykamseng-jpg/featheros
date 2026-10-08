@@ -13,6 +13,7 @@ import uuid
 import zipfile
 
 from .resources import resource_profile
+from . import code_sync
 
 
 WINDOWS_INVENTORY_SCRIPT = r"""
@@ -142,7 +143,12 @@ TOOLS = [
     spec("system_info", "Automatically inspect Feather host and read-only hardware inventory", {}),
     spec("file_list", "List files under a writable root", {"root": STRING, "path": STRING}),
     spec("file_read", "Read a UTF-8 source or project file", {"root": STRING, "path": STRING}, ("path",)),
-    spec("file_write", "Create or edit a UTF-8 source or project file atomically", {"root": STRING, "path": STRING, "content": STRING}, ("path", "content")),
+    spec("file_write", "Create or edit a UTF-8 project file; Feather source edits are recorded and automatically applied as FOSCP code patches", {"root": STRING, "path": STRING, "content": STRING, "summary": STRING}, ("path", "content")),
+    spec("code_patch_apply", "Apply a coordinated update to 1 to 32 Feather source files as one FOSCP code patch. The changes argument is a JSON array of objects with path and content strings", {"changes": STRING, "summary": STRING}, ("changes", "summary")),
+    spec("code_change_history", "List recent Feather source updates exchanged as FOSCP code messages", {}),
+    spec("code_change_export", "Return one versioned FOSCP code message for direct transfer to another Feather device", {"id": STRING}, ("id",)),
+    spec("code_change_receive", "Validate and automatically apply a versioned FOSCP code message to this Feather source tree", {"message": STRING}, ("message",)),
+    spec("code_change_rollback", "Create and apply a hash-checked rollback patch for a previous Feather source update", {"id": STRING}, ("id",)),
     spec("revision_save", "Save a named code/workspace revision on the hard disk", {"root": STRING, "label": STRING}),
     spec("revision_list", "List saved revisions", {}),
     spec("revision_restore", "Restore saved files; extra newer files are retained; restart modified services separately", {"revision": STRING}, ("revision",)),
@@ -162,6 +168,7 @@ class Agent:
         self.revisions = self.data / "revisions"
         self.revisions.mkdir(exist_ok=True)
         self.enable_commands = enable_commands
+        self.peer_server = None
         self.mcp_connected = False
         self.lock = threading.RLock()
         self.hardware_lock = threading.Lock()
@@ -362,8 +369,28 @@ class Agent:
             p = self.path(root, a["path"])
             if p == self.roots[root]:
                 raise ValueError("Choose a file")
+            if root == "source":
+                return code_sync.local_write(self, a["path"], a["content"], a.get("summary", "Feather AI code update"))
             self.atomic_text(p, a["content"])
-            return {"saved": a["path"], "root": root, "restart_may_be_required": root == "source"}
+            return {"saved": a["path"], "root": root, "restart_may_be_required": False}
+        if name == "code_change_history":
+            return code_sync.history(self)
+        if name == "code_patch_apply":
+            try:
+                changes = json.loads(a["changes"])
+            except (ValueError, TypeError) as exc:
+                raise ValueError("FOSCP changes must be a JSON array") from exc
+            return code_sync.local_batch_write(self, changes, a["summary"])
+        if name == "code_change_export":
+            return code_sync.get_message(self, a["id"])
+        if name == "code_change_receive":
+            try:
+                message = json.loads(a["message"])
+            except (ValueError, TypeError) as exc:
+                raise ValueError("FOSCP message must be valid JSON") from exc
+            return code_sync.apply_message(self, message, source="local-message")
+        if name == "code_change_rollback":
+            return code_sync.rollback(self, a["id"])
         if name == "revision_save":
             if root not in self.roots:
                 raise ValueError("Unknown root")
@@ -396,6 +423,8 @@ class Agent:
             if len(rev) != 32 or any(c not in "0123456789abcdef" for c in rev):
                 raise ValueError("Invalid revision ID")
             meta = json.loads((self.revisions / (rev + ".json")).read_text())
+            if meta.get("root") == "source":
+                raise ValueError("Use code_change_rollback for Feather source so the reversal is recorded as a FOSCP patch")
             with zipfile.ZipFile(self.revisions / (rev + ".zip")) as z:
                 planned = [(self.path(meta["root"], n), n) for n in z.namelist()]
                 for p, n in planned:
