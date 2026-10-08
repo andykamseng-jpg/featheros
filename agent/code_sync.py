@@ -36,23 +36,45 @@ def _text_sha(text):
 
 
 def _device_id(data_dir):
+    return _device_identity(data_dir)["id"]
+
+
+def _device_token(data_dir):
+    return _device_identity(data_dir)["token"]
+
+
+def _device_identity(data_dir):
     path = data_dir / _DEVICE_FILE
+    value = {}
     try:
-        value = json.loads(path.read_text(encoding="utf-8"))
-        if isinstance(value, dict) and isinstance(value.get("id"), str) and len(value["id"]) == 32:
-            return value["id"]
+        loaded = json.loads(path.read_text(encoding="utf-8"))
+        if isinstance(loaded, dict):
+            value = loaded
     except (OSError, ValueError, TypeError):
         pass
-    identity = uuid.uuid4().hex
+    changed = False
+    identity = value.get("id")
+    if not isinstance(identity, str) or len(identity) != 32 or any(ch not in "0123456789abcdef" for ch in identity):
+        identity = uuid.uuid4().hex
+        value["id"] = identity
+        changed = True
+    token = value.get("token")
+    if not isinstance(token, str) or len(token) != 64 or any(ch not in "0123456789abcdef" for ch in token):
+        token = secrets.token_hex(32)
+        value["token"] = token
+        changed = True
+    if not changed:
+        return value
+    data_dir.mkdir(parents=True, exist_ok=True)
     fd, temp = tempfile.mkstemp(dir=data_dir, prefix=".device-id-")
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as output:
-            json.dump({"id": identity}, output)
+            json.dump(value, output)
         os.replace(temp, path)
     finally:
         if os.path.exists(temp):
             os.unlink(temp)
-    return identity
+    return value
 
 
 def _validate_path(path):

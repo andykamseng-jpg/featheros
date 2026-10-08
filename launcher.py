@@ -12,11 +12,11 @@ from tkinter import messagebox, ttk
 import webbrowser
 
 from agent import __version__
-from agent import cloud, local_ai, assistant
+from agent import cloud, local_ai, assistant, f2f_cloud
 from agent.core import Agent
 from agent import registry
 from agent import updater
-from agent.server import make_http, main as server_main, stop_peer_sync
+from agent.server import make_http, main as server_main, start_peer_sync, stop_peer_sync
 
 
 APP_NAME = "FeatherOS"
@@ -109,7 +109,15 @@ class FeatherPrep:
                             format="%(asctime)s %(levelname)s %(message)s")
         self.agent = Agent(self.data_dir, self.source_dir)
         self.http = make_http(self.agent)
+        try:
+            start_peer_sync(self.agent)
+        except OSError as exc:
+            logging.warning("Automatic Feather peer sync is unavailable: %s", exc)
         self.stop_event = threading.Event()
+        self.f2f_thread = threading.Thread(target=f2f_cloud.worker,
+                                           args=(self.agent, self.stop_event),
+                                           name="feather-f2f-cloud", daemon=True)
+        self.f2f_thread.start()
         self.registry_stop = threading.Event()
         self.registry_thread = None
         self.update_pending = False
