@@ -142,7 +142,7 @@ class CodeSyncTests(unittest.TestCase):
         update = self.sender.call("file_write", {"root": "source", "path": "agent.py",
             "content": "VALUE = 5\n", "summary": "Direct Feather sync"})
         message = code_sync.get_message(self.sender, update["change_id"])
-        result = code_sync.send_message(peer["addresses"][0], peer["pairing_key"], message)
+        result = code_sync.send_message(peer["addresses"][0], self.receiver.peer_server.peer_token, message)
         self.assertEqual(result["status"], "applied")
         self.assertEqual((self.source_b / "agent.py").read_text(), "VALUE = 5\n")
 
