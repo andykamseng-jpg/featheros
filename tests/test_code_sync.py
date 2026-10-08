@@ -6,8 +6,8 @@ import unittest
 from unittest.mock import patch
 
 from agent.core import Agent
-from agent import code_sync
-from agent.server import start_peer_sync, stop_peer_sync
+from agent import code_sync, f2f_cloud
+from agent.server import _sync_peer, start_peer_sync, stop_peer_sync
 
 
 class CodeSyncTests(unittest.TestCase):
@@ -142,9 +142,65 @@ class CodeSyncTests(unittest.TestCase):
         update = self.sender.call("file_write", {"root": "source", "path": "agent.py",
             "content": "VALUE = 5\n", "summary": "Direct Feather sync"})
         message = code_sync.get_message(self.sender, update["change_id"])
-        result = code_sync.send_message(peer["addresses"][0], peer["pairing_key"], message)
+        result = code_sync.send_message(peer["addresses"][0], self.receiver.peer_server.peer_token, message)
         self.assertEqual(result["status"], "applied")
         self.assertEqual((self.source_b / "agent.py").read_text(), "VALUE = 5\n")
+
+    def test_automatic_peer_sync_pulls_code_messages_without_manual_address_or_key(self):
+        update = self.sender.call("file_write", {"root": "source", "path": "agent.py",
+            "content": "VALUE = 6\n", "summary": "Automatic F2F update"})
+        message = code_sync.get_message(self.sender, update["change_id"])
+        peer_id = code_sync._device_id(self.sender.data)
+
+        def peer_get(_base, path, _token=None):
+            if path == "/foscp/v1/info":
+                return {"device_id": peer_id, "pairing_key": "p" * 48}
+            if path == "/foscp/v1/updates":
+                return {"changes": [update["change_id"]]}
+            if path == "/foscp/v1/change/" + update["change_id"]:
+                return message
+            raise AssertionError("unexpected FOSCP route: " + path)
+
+        with patch("agent.server._peer_get", side_effect=peer_get):
+            result = _sync_peer(self.receiver, "192.168.1.20", 8766, peer_id)
+        self.assertEqual(result["applied"], 1)
+        self.assertEqual(result["rejected"], 0)
+        self.assertEqual((self.source_b / "agent.py").read_text(), "VALUE = 6\n")
+        self.assertEqual(code_sync.history(self.receiver)[0]["source"], "peer:" + peer_id)
+
+    def test_automatic_peer_sync_rejects_a_mismatched_discovery_identity(self):
+        with patch("agent.server._peer_get", return_value={
+                "device_id": "b" * 32, "pairing_key": "p" * 48}):
+            with self.assertRaisesRegex(ValueError, "identity did not match"):
+                _sync_peer(self.receiver, "192.168.1.20", 8766, "a" * 32)
+
+    def test_cross_network_relay_publishes_pulls_and_applies_code_message(self):
+        update = self.sender.call("file_write", {"root": "source", "path": "agent.py",
+            "content": "VALUE = 11\n", "summary": "Cross-network F2F update"})
+        messages = []
+
+        def relay(action, payload):
+            if action == "publish":
+                messages.append(payload["message"])
+                return {"accepted": True}
+            if action == "pull":
+                items = [{"cursor": "1000|" + item["id"], "message": item} for item in messages]
+                cursor = items[-1]["cursor"] if items else payload["cursor"]
+                return {"updates": items[:payload["limit"]], "cursor": cursor,
+                        "more": len(items) > payload["limit"]}
+            raise AssertionError("unexpected F2F relay action: " + action)
+
+        with patch("agent.f2f_cloud._post", side_effect=relay):
+            first = f2f_cloud.sync_once(self.sender)
+            second = f2f_cloud.sync_once(self.receiver)
+
+        self.assertEqual(first["sent"], 1)
+        self.assertEqual(second["received"], 1)
+        self.assertEqual((self.source_b / "agent.py").read_text(), "VALUE = 11\n")
+        self.assertEqual(code_sync.history(self.receiver)[0]["source"],
+                         "peer-cloud:" + code_sync._device_id(self.sender.data))
+        self.assertEqual(f2f_cloud._read_state(self.receiver)["cursor"],
+                         "1000|" + update["change_id"])
 
 
 if __name__ == "__main__":
