@@ -18,13 +18,12 @@ def run_task(agent, text):
     endpoint = os.environ["FEATHER_AI_URL"]
     if urlparse(endpoint).scheme != "https":
         raise ValueError("Cloud AI endpoint must use HTTPS")
-    # The saved compact hardware summary is in the prompt. Keep the raw inventory,
-    # including any unique device paths, out of the online provider tool loop.
+    # The saved compact hardware summary is in the system prompt. Keep the raw
+    # inventory, which can include unique device paths, out of the cloud tool loop.
     tools = [t for t in TOOLS
              if not t["name"].startswith("task_") and t["name"] != "system_info"]
     messages = [
-        {"role": "system", "content": "You operate Feather through its tools. Inspect before changing files. "
-         "Use root=source for Feather code and root=workspace for user projects. Save a revision before edits. "
+        {"role": "system", "content": "You operate Feather through its tools. The user is Feather's owner and final leader, addressed in Feather's core rules as Mother. Routine Feather source improvements can apply automatically; each source edit is recorded as a hash-checked FOSCP/1 code patch so the owner can inspect or roll it back. Use root=source for Feather code and root=workspace for user projects. Feather source writes automatically become FOSCP patches; use code_patch_apply to group a coordinated multi-file change and code_change_rollback to reverse it, not a zip snapshot. Report changed paths and whether a restart is needed. FOSCP transfers code deltas, not installers or source bundles. Hardware-specific changes apply only on a matching hardware fingerprint. Never claim peer sync happened without a successful response. Inspect before changing files. "
          "Run relevant verification when commands are enabled. Do not claim an OS install or test happened "
          "without evidence. Source edits may require restart. Report what changed and any remaining limitations. "
          "Use this saved local hardware profile when relevant: " + json.dumps(agent.hardware_context(), ensure_ascii=False)},

@@ -16,7 +16,7 @@ from agent import cloud, local_ai, assistant
 from agent.core import Agent
 from agent import registry
 from agent import updater
-from agent.server import make_http, main as server_main
+from agent.server import make_http, main as server_main, stop_peer_sync
 
 
 APP_NAME = "FeatherOS"
@@ -352,6 +352,7 @@ class FeatherPrep:
         self.stop_event.set()
         self.registry_stop.set()
         try:
+            stop_peer_sync(self.agent)
             self.http.shutdown()
             self.http.server_close()
         finally:
